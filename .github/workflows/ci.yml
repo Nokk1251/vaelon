@@ -1,0 +1,48 @@
+# Quick checks. In a private repository Windows minutes count twice and macOS minutes ten times, so pull requests and
+# pushes to main run on Linux only; "Run workflow" (Actions tab) runs the full Linux + Windows + macOS matrix.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-latest", "windows-latest", "macos-latest"]') || fromJSON('["ubuntu-latest"]') }}
+        python: ["3.10", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ matrix.python }}" }
+      - run: pip install -e .
+      - run: python scripts/check_secrets.py
+      - run: python -I tests/test_core.py
+      - run: python -I tests/test_runtime.py
+      - run: python -I tests/test_structured.py
+      - run: python -I tests/test_learning.py
+      - run: python -I tests/test_power.py
+      - run: python -I tests/test_security.py
+      - run: python -I tests/test_intents.py
+      - run: python -I tests/test_parallel.py
+      - run: python -I tests/test_create.py
+      - run: python -I tests/test_companion.py
+      - run: python -I tests/test_rename.py
+      - run: python -I tests/test_live.py
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: npm ci --no-audit --no-fund
+        working-directory: ui/web
+      - run: npx tsc --noEmit
+        working-directory: ui/web

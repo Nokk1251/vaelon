@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- the same scheme as the site: a different one makes the browser paint the iframe opaque -->
+<meta name="color-scheme" content="dark">
+<title>Vaelon V 3D</title>
+<style>
+  /* Transparent page: inside an iframe the host page shows through (no box). Opened on its own it sits on black. */
+  :root { --dim: #8a7a6c; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+  html.alone, html.alone body { background: #050304; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+  .err { position: fixed; inset: 0; display: grid; place-items: center; padding: 0 16px; text-align: center;
+    color: var(--dim); font: 14px "Segoe UI", system-ui, sans-serif; pointer-events: none; }
+  .err[hidden] { display: none; }
+</style>
+<script>
+  if (window.self === window.top) document.documentElement.classList.add("alone");
+  // if three.js (from the CDN) never arrives, say so instead of leaving an empty page
+  setTimeout(() => {
+    if (window.__v3d) return;
+    const e = document.getElementById("err");
+    e.textContent = "The 3D mark could not load (it needs WebGL and three.js from cdn.jsdelivr.net).";
+    e.hidden = false;
+  }, 8000);
+</script>
+</head>
+<body>
+<canvas id="c" role="img" aria-label="The Vaelon V, made of a flock of glowing birds: yellow at the point, orange towards the tips, with one red bird."></canvas>
+<div class="err" id="err" role="alert" hidden></div>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+// Vaelon's V as a flock: the birds fly in, gather on the dots of the logo and stay alive there.
+// The pointer is a hawk: birds near it dodge away and fly back to their place. Nothing explodes.
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+window.__v3d = 1;
+const GLB = "__GLB_URL__";
+const canvas = document.getElementById("c");
+const errEl = document.getElementById("err");
+const fail = (text, e) => { errEl.textContent = text; errEl.hidden = false; if (e) console.error(e); };
+const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true });
+} catch (e) { fail("This page needs WebGL.", e); throw e; }
+renderer.setClearColor(0x000000, 0);
+const DPR = Math.min(devicePixelRatio || 1, 2);
+renderer.setPixelRatio(DPR);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 50);
+camera.position.set(0, 0, 4.6);
+const group = new THREE.Group();
+scene.add(group);
+
+// soft additive dots, like the app's swarm
+const mat = new THREE.ShaderMaterial({
+  // additive, written so alpha always covers the colour (premultiplied canvas): the page behind shows through
+  // the same way in every browser
+  transparent: true, depthWrite: false, blending: THREE.CustomBlending,
+  blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneFactor,
+  uniforms: { uTime: { value: 0 }, uPixel: { value: DPR }, uScale: { value: 1 } },
+  vertexShader: /* glsl */`
+    attribute vec3 aCol; attribute float aSeed; attribute float aHeat;
+    uniform float uTime, uPixel, uScale;
+    varying vec3 vCol; varying float vA;
+    void main() {
+      vec4 mv = modelViewMatrix * vec4(position, 1.0);
+      gl_Position = projectionMatrix * mv;
+      float flick = 0.78 + 0.22 * sin(uTime * (3.0 + aSeed * 6.0) + aSeed * 40.0);
+      // the app's slow wave of light across the flock
+      float w = 0.5 + 0.5 * sin(position.x * 1.6 - position.y * 0.9 - uTime * 0.6);
+      float shine = pow(w, 10.0) * 0.35;
+      vec3 c = pow(aCol, vec3(1.0 / 2.2));            // the model's colours are linear; the screen wants sRGB
+      vCol = mix(c, vec3(1.0, 0.86, 0.6), shine) * (1.0 + aHeat * 0.8);
+      vA = flick;
+      gl_PointSize = (2.2 + aSeed * 1.8) * uPixel * uScale * (4.6 / -mv.z);
+    }`,
+  fragmentShader: /* glsl */`
+    varying vec3 vCol; varying float vA;
+    void main() {
+      vec2 q = gl_PointCoord - 0.5; float d = dot(q, q);
+      if (d > 0.25) discard;
+      float a = smoothstep(0.25, 0.0, d) * vA * 0.9;
+      vec3 c = vCol * a;
+      gl_FragColor = vec4(c, max(c.r, max(c.g, c.b)));
+    }`,
+});
+
+const clock = new THREE.Clock();
+let started = 0;
+let N = 0, home, pos, vel, seed, heat, posAttr, heatAttr;
+new GLTFLoader().load(GLB, (gltf) => {
+  try { build(gltf); } catch (e) { fail("Could not show the model.", e); }
+}, undefined, (e) => fail("Could not load the model.", e));
+
+function build(gltf) {
+  let mesh = null;
+  gltf.scene.traverse((o) => { if (o.isMesh && !mesh) mesh = o; });
+  if (!mesh) throw new Error("no mesh in the model");
+  const g = mesh.geometry, P = g.attributes.position, C = g.attributes.color, S = g.attributes._seed;
+  if (!C || !S) throw new Error("the model needs COLOR_0 and _SEED");
+  const idx = g.index ? g.index.array : Array.from({ length: P.count }, (_, i) => i);
+  N = Math.floor(idx.length / 3);                     // one tiny triangle per bird: its centre is the bird
+  home = new Float32Array(N * 3); pos = new Float32Array(N * 3); vel = new Float32Array(N * 3);
+  seed = new Float32Array(N); heat = new Float32Array(N);
+  const col = new Float32Array(N * 3);
+  for (let b = 0; b < N; b++) {
+    const i0 = idx[b * 3], i1 = idx[b * 3 + 1], i2 = idx[b * 3 + 2];
+    for (let k = 0; k < 3; k++) {
+      home[b * 3 + k] = (P.getComponent(i0, k) + P.getComponent(i1, k) + P.getComponent(i2, k)) / 3;
+      col[b * 3 + k] = C.getComponent(i0, k);
+    }
+    seed[b] = S.getX(i0);
+    if (reduce.matches) {
+      pos[b * 3] = home[b * 3]; pos[b * 3 + 1] = home[b * 3 + 1]; pos[b * 3 + 2] = home[b * 3 + 2];
+    } else {
+      // the entrance: the flock arrives as a loose cloud from the right and settles
+      const a = Math.random(), r = Math.random();
+      pos[b * 3] = 3.2 + a * 3.0; pos[b * 3 + 1] = (r - 0.5) * 2.4 + Math.sin(a * 9) * 0.5; pos[b * 3 + 2] = (Math.random() - 0.5) * 2;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  posAttr = new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage);
+  heatAttr = new THREE.BufferAttribute(heat, 1).setUsage(THREE.DynamicDrawUsage);
+  geo.setAttribute("position", posAttr);
+  geo.setAttribute("aCol", new THREE.BufferAttribute(col, 3));
+  geo.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
+  geo.setAttribute("aHeat", heatAttr);
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  group.add(pts);
+  started = clock.elapsedTime;
+}
+
+// the pointer, as a point on the V's plane in the V's own space
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(9, 9), plane = new THREE.Plane();
+const hawk = new THREE.Vector3(99, 99, 0), hit = new THREE.Vector3();
+let pointerIn = false, tiltX = 0, tiltY = 0, scare = 0;
+function aim(e) {
+  const r = canvas.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  pointerIn = true;
+}
+addEventListener("pointermove", (e) => { if (e.isPrimary) aim(e); });
+addEventListener("pointerdown", (e) => { if (e.isPrimary) aim(e); });
+document.addEventListener("pointerout", (e) => { if (e.isPrimary && !e.relatedTarget) pointerIn = false; });
+addEventListener("pointerup", (e) => { if (e.isPrimary && e.pointerType !== "mouse") pointerIn = false; });
+addEventListener("pointercancel", (e) => { if (e.isPrimary) pointerIn = false; });   // a swipe became a scroll
+
+function resize() {
+  const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+  if (w < 2 || h < 2) return;                          // hidden: keep the last good size (0 would make NaN)
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  // the V is ~2 wide and ~1.8 tall: keep all of it in view with a margin
+  const t = Math.tan(THREE.MathUtils.degToRad(17.5));
+  camera.position.z = Math.max(1.25 / t, 1.35 / (t * camera.aspect));
+  mat.uniforms.uScale.value = Math.max(0.6, Math.min(1.4, h / 520));
+  camera.updateProjectionMatrix();
+}
+addEventListener("resize", resize);
+resize();
+
+// draw only while the mark can be seen (an iframe scrolled out of view, a hidden tab)
+let inView = true;
+new IntersectionObserver((es) => { inView = es[0].isIntersecting; run(); }).observe(canvas);
+document.addEventListener("visibilitychange", run);
+function run() { renderer.setAnimationLoop(inView && !document.hidden ? frame : null); if (inView) clock.getDelta(); }
+run();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 1 / 20);
+  const t = clock.elapsedTime;
+  const still = reduce.matches;
+  mat.uniforms.uTime.value = still ? 0 : t;
+  // a slow sway, and a little tilt towards the pointer
+  tiltX += ((pointerIn ? ndc.y * 0.25 : 0) - tiltX) * Math.min(1, dt * 2.5);
+  tiltY += ((pointerIn ? ndc.x * 0.4 : 0) - tiltY) * Math.min(1, dt * 2.5);
+  group.rotation.x = -tiltX + (still ? 0 : Math.sin(t * 0.31) * 0.08);
+  group.rotation.y = tiltY + (still ? 0 : Math.sin(t * 0.23) * 0.3);
+  if (N) {
+    group.updateMatrixWorld();
+    plane.setFromNormalAndCoplanarPoint(new THREE.Vector3(0, 0, 1).transformDirection(group.matrixWorld),
+      group.localToWorld(new THREE.Vector3()));
+    ray.setFromCamera(ndc, camera);
+    const on = pointerIn && ray.ray.intersectPlane(plane, hit);
+    if (on) hawk.copy(group.worldToLocal(hit.clone()));
+    scare += ((on ? 1 : 0) - scare) * Math.min(1, dt * 5);
+    const settle = Math.min(1, (t - started) / 2.5);           // the entrance: the pull grows as they arrive
+    const pull = 10 + 30 * settle * settle;
+    const damp = Math.pow(0.86, dt * 60);
+    const R2 = 0.09;                                            // the hawk's reach (radius ~0.3)
+    for (let b = 0; b < N; b++) {
+      const i = b * 3, s = seed[b];
+      // each bird holds its place but never stands still: a small wandering loop of its own
+      const w = still ? 0 : 0.012;
+      const hx = home[i] + w * Math.sin(t * (1.1 + s * 1.7) + s * 40);
+      const hy = home[i + 1] + w * Math.cos(t * (0.9 + s * 1.3) + s * 31);
+      const hz = home[i + 2] + w * 2 * Math.sin(t * (0.7 + s) + s * 17);
+      let ax = (hx - pos[i]) * pull, ay = (hy - pos[i + 1]) * pull, az = (hz - pos[i + 2]) * pull;
+      // the hawk: birds within reach dodge sideways and up, the closer the harder
+      const dx = pos[i] - hawk.x, dy = pos[i + 1] - hawk.y, d2 = dx * dx + dy * dy;
+      let h = 0;
+      if (scare > 0.01 && d2 < R2 * 4) {
+        h = Math.exp(-d2 / R2) * scare * (still ? 0.3 : 1);
+        const d = Math.sqrt(d2) + 1e-4;
+        ax += (dx / d) * h * 60; ay += (dy / d) * h * 60; az += h * 25 * (s - 0.3);
+      }
+      heat[b] += (h - heat[b]) * Math.min(1, dt * 6);
+      vel[i] = (vel[i] + ax * dt) * damp; vel[i + 1] = (vel[i + 1] + ay * dt) * damp; vel[i + 2] = (vel[i + 2] + az * dt) * damp;
+      pos[i] += vel[i] * dt; pos[i + 1] += vel[i + 1] * dt; pos[i + 2] += vel[i + 2] * dt;
+    }
+    posAttr.needsUpdate = true;
+    heatAttr.needsUpdate = true;
+  }
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>

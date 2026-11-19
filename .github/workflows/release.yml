@@ -1,0 +1,121 @@
+# Builds the Windows installer and the Mac disk image - when a version tag (v1.2.3) is pushed, or by hand with
+# "Run workflow" on the Actions tab - and attaches them to a DRAFT GitHub Release together with SHA-256 checksums and a
+# list of every bundled library (SBOM). Nothing is published until you press "Publish". The version always comes from
+# src/vaelon/__init__.py.
+name: release
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+# least privilege: the build jobs can only read; only the last job may create the (draft) release.
+# Before the first public release, pin every `uses:` to a full commit SHA (with the tag as a comment) and enable
+# Dependabot for GitHub Actions - a moved tag is a supply-chain risk.
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Version
+        id: ver
+        shell: bash
+        run: echo "version=$(python -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('src/vaelon/__init__.py').read()).group(1))")" >> "$GITHUB_OUTPUT"
+      - name: Install
+        run: |
+          pip install -e ".[system,search,docs,vision,app]" "piper-tts>=1.2" numpy pyinstaller cyclonedx-bom
+      - name: Tests
+        shell: bash
+        run: |
+          python scripts/check_secrets.py
+          failed=""  # run every file, then list all failures at once
+          for f in tests/test_*.py; do python -I "$f" || failed="$failed $f"; done
+          if [ -n "$failed" ]; then echo "FAILED:$failed"; exit 1; fi
+      - name: Build the app
+        run: python scripts/build_app.py
+      - name: Installer (Inno Setup)
+        shell: pwsh
+        env: { VERSION: "${{ steps.ver.outputs.version }}" }
+        run: |
+          # Inno Setup 7.1.1 from its official release (Chocolatey has no 7.x package). Checked twice before it runs:
+          # the SHA-256 published with that release, and a valid Authenticode signature by Pyrsys B.V. (the publisher
+          # named on jrsoftware.org).
+          $url = "https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe"
+          $sha = "8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0"
+          $setup = Join-Path $env:RUNNER_TEMP "innosetup-7.1.1-x64.exe"
+          Invoke-WebRequest -Uri $url -OutFile $setup -UseBasicParsing
+          if ((Get-FileHash $setup -Algorithm SHA256).Hash.ToLower() -ne $sha) { throw "Inno Setup download: wrong SHA-256" }
+          $sig = Get-AuthenticodeSignature $setup
+          if ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "Pyrsys") { throw "Inno Setup download: bad signature" }
+          $p = Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/ALLUSERS" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Inno Setup install failed: $($p.ExitCode)" }
+          $v = $env:VERSION
+          $iscc = Get-ChildItem "C:\Program Files*\Inno Setup 7\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 7\ISCC.exe" -EA SilentlyContinue | Select-Object -First 1
+          # ISCC.exe carries no version number in its file info; the version is fixed by the checked download above
+          if (-not $iscc) { throw "Inno Setup 7 not found after the install" }
+          & $iscc.FullName "/DAppVersion=$v" installer\vaelon.iss
+      - name: Portable zip, SBOM, checksums
+        shell: pwsh
+        env: { VERSION: "${{ steps.ver.outputs.version }}" }
+        run: |
+          $v = "v$env:VERSION"
+          New-Item -ItemType Directory -Force release | Out-Null
+          Compress-Archive -Path dist\Vaelon\* -DestinationPath "release\Vaelon-$v-portable.zip"
+          Copy-Item installer\Output\*.exe release\
+          cyclonedx-py environment --output-format JSON --output-file "release\Vaelon-$v-sbom.cdx.json"
+          Copy-Item LICENSE, NOTICE, THIRD_PARTY.md release\
+          Get-ChildItem release -File | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii release\SHA256SUMS.txt
+          Get-Content release\SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: windows, path: release/ }
+
+  # the Mac version: built on GitHub's free macOS machines (Apple builds Mac apps only on a Mac). Ad-hoc signed, not
+  # notarised (no paid Apple account) - users confirm it once in System Settings > Privacy & Security.
+  macos:
+    runs-on: macos-latest  # GitHub retires old macOS images; "latest" keeps the build working
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Install
+        run: pip install -e ".[system,search,docs,vision,app,live,mac]" "piper-tts>=1.2" numpy pyinstaller
+      - name: Tests
+        run: |
+          python scripts/check_secrets.py
+          failed=""  # run every file, then list all failures at once
+          for f in tests/test_*.py; do python -I "$f" || failed="$failed $f"; done
+          if [ -n "$failed" ]; then echo "FAILED:$failed"; exit 1; fi
+      - name: Build the app and the disk image
+        run: python scripts/build_mac.py
+      - uses: actions/upload-artifact@v4
+        with: { name: macos, path: "dist/*.dmg" }
+
+  release:
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: release, merge-multiple: true }
+      - name: Checksums
+        run: cd release && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.windows.outputs.version }}
+          name: Vaelon ${{ needs.windows.outputs.version }}
+          draft: true
+          generate_release_notes: true
+          files: release/*
