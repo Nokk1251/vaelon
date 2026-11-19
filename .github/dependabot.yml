@@ -1,0 +1,7 @@
+# Proposes updates of the pinned GitHub actions as pull requests (reviewed and merged by the owner).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

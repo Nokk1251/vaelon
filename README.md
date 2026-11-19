@@ -2,6 +2,8 @@
 
 Private, open-source (GPL-3.0-or-later) AI agent for your computer, phone and inbox - by text, voice or Telegram.
 
+Website: https://nokk1251.github.io/vaelon/
+
 **Vaelon - originally created by [Nokk_7](https://github.com/Nokk1251).** This credit must stay in every copy and modified version (see [NOTICE](NOTICE)).
 Combines the best ideas of OpenJarvis, Jarvis, Ultron and JARVIS projects (see [docs/ANALYSIS.md](docs/ANALYSIS.md)).
 
