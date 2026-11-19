@@ -36,8 +36,10 @@ def note(cfg, kind: str, text: str) -> str:
     if kind not in KINDS:
         raise ValueError("unknown kind of feedback")
     body = dlp.scrub(clean(text))  # a key pasted by mistake never reaches the file
-    return (f"Vaelon feedback - {kind}\n\n{body}\n\n---\nVaelon {__version__} · Windows {platform.release()} "
-            f"({platform.version()}) · model: {'local' if cfg.is_local else 'cloud'}\n")
+    system = (f"macOS {platform.mac_ver()[0]}" if platform.system() == "Darwin"
+              else f"{platform.system()} {platform.release()} ({platform.version()})")
+    return (f"Vaelon feedback - {kind}\n\n{body}\n\n---\nVaelon {__version__} · {system} "
+            f"· model: {'local' if cfg.is_local else 'cloud'}\n")
 
 
 def save(cfg, kind: str, text: str) -> dict:

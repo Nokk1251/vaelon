@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { VaelonApi, type KeyRow, type Settings } from "@/lib/vaelonApi";
 import { STRINGS, type Lang } from "@/lib/i18n";
 import { KeyField } from "./SettingsPanel";
@@ -20,11 +20,16 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
   const [cloud, setCloud] = useState(first.preset && first.preset !== "local" ? first.preset : "groq");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
+  // a slow background check must not overwrite what a later save already showed: every request and save gets a
+  // number, and an answer that is no longer the newest is dropped
+  const gen = useRef(0);
 
   const refresh = useCallback(
     async (probe = true) => {
+      const mine = ++gen.current;
       try {
         const next = await new VaelonApi(token).settings(probe);
+        if (mine !== gen.current) return;
         setS((old) => ({ ...next, ollama: next.ollama ?? old.ollama }));
       } catch {
         /* keep what we have */
@@ -62,6 +67,7 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
     try {
       const api = new VaelonApi(token);
       if (step === 0 && name.trim() && name.trim() !== s.address_as) {
+        gen.current++;
         const r = await api.saveSettings({ address_as: name.trim() });
         if (!r.ok) throw new Error(r.error || t.settingsFail);
         setS((old) => ({ ...r.settings, ollama: old.ollama }));
@@ -69,6 +75,7 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
       if (step === 1) {
         const want = where === "local" ? "local" : cloud;
         if (want !== s.preset) {
+          gen.current++;
           const r = await api.saveSettings({ provider: want });
           if (!r.ok) throw new Error(r.error || t.settingsFail);
           setS((old) => ({ ...r.settings, ollama: old.ollama }));
@@ -86,6 +93,7 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
     setBusy(true);
     setProblem("");
     try {
+      gen.current++;
       const r = await new VaelonApi(token).saveSettings({ profiles: names });
       if (!r.ok) throw new Error(r.error || t.settingsFail);
       setS((old) => ({ ...r.settings, ollama: old.ollama }));

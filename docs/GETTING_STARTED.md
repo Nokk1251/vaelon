@@ -9,7 +9,7 @@
    (that needs a paid certificate).
 3. Start Vaelon from the Start menu (or the desktop shortcut, if you chose one).
 
-**macOS 12 or later**
+**macOS 14 or later, Apple silicon (M1 or newer)**
 1. Download `Vaelon-<version>.dmg` from the release page, open it and drag **Vaelon** onto **Applications**.
 2. Open Vaelon from Applications. The first time macOS says it cannot check the app: open **System Settings >
    Privacy & Security**, scroll down, click **Open Anyway** and confirm. This happens once - the app is signed ad hoc,

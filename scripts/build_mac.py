@@ -1,6 +1,6 @@
 """Build the Mac app and its disk image: dist/Vaelon.app and dist/Vaelon-<version>.dmg.
 
-    python3 scripts/build_mac.py        # on a Mac (macOS 12+), with Node, Python 3.13 and the app extras installed:
+    python3 scripts/build_mac.py        # on a Mac (macOS 14+, Apple silicon), with Node, Python 3.13 and the app extras installed:
                                         # pip install -e ".[system,search,docs,vision,app,mac]" "piper-tts>=1.2" numpy pyinstaller
 
 Apple builds Mac apps only on a Mac, so this runs there (or on GitHub's free macOS machines, see
@@ -82,7 +82,7 @@ def main() -> None:
     info = app / "Contents" / "Info.plist"
     data = plistlib.loads(info.read_bytes())
     data.update(USAGE)
-    data.update({"CFBundleShortVersionString": __version__, "CFBundleVersion": __version__, "LSMinimumSystemVersion": "12.0",
+    data.update({"CFBundleShortVersionString": __version__, "CFBundleVersion": __version__, "LSMinimumSystemVersion": "14.0",
                  "NSHighResolutionCapable": True, "LSApplicationCategoryType": "public.app-category.productivity"})
     info.write_bytes(plistlib.dumps(data))
     # ad-hoc signature (free): required for Apple-silicon binaries; re-done after Info.plist changed

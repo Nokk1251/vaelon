@@ -117,6 +117,43 @@ class Commands(unittest.TestCase):
         self.assertIn("Daria", args)  # the Bulgarian voice for "bg"
 
 
+class Voice(unittest.TestCase):
+    def test_mac_falls_back_to_its_own_voice_after_elevenlabs(self):  # cap reached: `say`, not an error
+        from vaelon import tts
+
+        saved = (tts._engine, tts.reserve, tts._piper_ready, tts._sapi)
+        used = []
+        tts._engine = lambda lang: "elevenlabs"
+        tts.reserve = lambda text: False  # the monthly cap is reached
+        tts._piper_ready = lambda lang: False  # the installed app has no Piper voices
+        tts._sapi = lambda text, lang, td: used.append(lang) or b"RIFF-system-voice"
+        real = sys.platform
+        sys.platform = "darwin"
+        try:
+            flat = {"pitch": 1.0, "speed": 1.0, "metal": 0, "robot": 0, "radio": 0, "echo": 0, "space": 0}
+            self.assertEqual(tts._synthesize("Hello there, this is a test.", flat), b"RIFF-system-voice")
+            self.assertEqual(len(used), 1)
+        finally:
+            sys.platform = real
+            tts._engine, tts.reserve, tts._piper_ready, tts._sapi = saved
+
+    def test_feedback_names_the_real_system(self):
+        import platform
+
+        from vaelon import feedback
+        from vaelon.config import Config
+
+        real = platform.system, platform.mac_ver
+        platform.system = lambda: "Darwin"
+        platform.mac_ver = lambda: ("14.5", ("", "", ""), "arm64")
+        try:
+            text = feedback.note(Config(provider="mock"), sorted(feedback.KINDS)[0], "A test idea.")
+        finally:
+            platform.system, platform.mac_ver = real
+        self.assertIn("macOS 14.5", text)
+        self.assertNotIn("Windows", text)
+
+
 class Paths(unittest.TestCase):
     def test_mac_private_places_are_protected(self):
         home = Path(tempfile.mkdtemp())

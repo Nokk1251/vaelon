@@ -9,7 +9,7 @@ Combines the best ideas of OpenJarvis, Jarvis, Ultron and JARVIS projects (see [
 
 ## Install and start
 
-| | Windows 10 / 11 | macOS 12 or later |
+| | Windows 10 / 11 | macOS 14 or later, Apple silicon (M1 or newer) |
 |---|---|---|
 | Download | `Vaelon-Setup-<version>.exe` from the release page | `Vaelon-<version>.dmg` from the release page |
 | Install | run it (one administrator prompt; installs into Program Files) | open the .dmg and drag **Vaelon** onto **Applications** |

@@ -32,7 +32,7 @@ const EN = {
   toolsN: "tools", skillsN: "skills", model: "model", local: "local", cloud: "cloud",
   pickHint: "Click an example and it appears in the command box.",
   skillsHint: "Skills switch on by themselves when a request contains one of their words. Ones Vaelon learned are marked.",
-  learnedTag: "learned", words: "words", inChat: "In the chat", inTerminal: "In the terminal (PowerShell)",
+  learnedTag: "learned", words: "words", inChat: "In the chat", inTerminal: "In a terminal",
   risk: { safe: "safe", reversible: "undoable", dangerous: "asks permission" },
   aboutYou: "What I know about you", nothingYet: "Nothing yet. Say “My name is …, I live in …” or “remember that …”.",
   facts: "Remembered facts", memoryTotal: "Memory overall", empty: "empty", historyMsgs: "messages in history",
@@ -54,7 +54,7 @@ const EN = {
   cloudVoice: "Studio cloud voice:", and: "and", cloudVoiceNote: "(text goes to the cloud). The effects above apply to it too.",
   engine: "Voice engine", engineAuto: "Auto", engineEleven: "ElevenLabs (cloud)", enginePiper: "Local neural",
   engineWindows: "System voice (Windows or Mac)", nowSpeaking: "Speaking now with", elevenUsage: "ElevenLabs this month",
-  elevenNoKey: "no key - run: vaelon key set (ELEVENLABS_API_KEY)", cleanTip:
+  elevenNoKey: "no key - add ELEVENLABS_API_KEY in Settings > Keys", cleanTip:
     "Tip: ElevenLabs voices already sound natural - pick the Clean preset (or keep a little Metal) for the best quality.",
   mic: "Speak a command", micListening: "Listening… (stops when you stop talking)", micThinking: "Transcribing…",
   micNoEngine: "No speech-to-text engine. Use Groq (vaelon provider groq) or install local Whisper.",
@@ -227,7 +227,7 @@ const EN = {
   fbKinds: { idea: "Idea", problem: "Problem", question: "Question", praise: "Praise" },
   fbPlaceholder: "What happened, what you expected, or what you would like…",
   fbSave: "Save as a file", fbMail: "Save and open as e-mail", fbSaved: "Feedback saved.", fbFail: "Could not save the feedback.",
-  fbPrivacy: "The file holds your text, the Vaelon and Windows version and whether the model is local or cloud - no name, keys, files or chats.",
+  fbPrivacy: "The file holds your text, the Vaelon and system version and whether the model is local or cloud - no name, keys, files or chats.",
   setLook: "Look and sound",
   lookGlitchVisual: "Glitch effects on the animation", lookGlitchVoice: "Glitch effects in the voice (while Vaelon speaks)",
   lookDot: "Orange dot in front of Vaelon's answers",

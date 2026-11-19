@@ -405,18 +405,18 @@ def _synthesize(text: str, v: dict, local_only: bool = False) -> bytes:
     lang = detect_lang(text)
     engine = _engine(lang)
     if engine is None:
-        raise FileNotFoundError(f"no voice engine for '{lang}': run  vaelon voice-setup")
+        raise FileNotFoundError(f"no voice for '{lang}' on this computer - add a system voice (Help > Voice)")
     wav = None
     if engine == "elevenlabs" and (local_only or not reserve(text)):  # cap reached / cloud just failed: local voice
-        engine = "piper" if _piper_ready(lang) else ("sapi" if sys.platform == "win32" else None)
+        engine = "piper" if _piper_ready(lang) else ("sapi" if sys.platform in ("win32", "darwin") else None)
         if engine is None:
-            raise RuntimeError("ElevenLabs monthly cap reached and no local voice installed (vaelon voice-setup)")
+            raise RuntimeError("ElevenLabs monthly cap reached and no local voice for this language (Help > Voice)")
     if engine == "elevenlabs":
         try:
             wav = _elevenlabs(text)
         except Exception:
             _add_usage(-len(text))  # refused / unreachable: not billed
-            engine = "piper" if _piper_ready(lang) else ("sapi" if sys.platform == "win32" else None)
+            engine = "piper" if _piper_ready(lang) else ("sapi" if sys.platform in ("win32", "darwin") else None)
             if engine is None:
                 raise
     if wav is None:
