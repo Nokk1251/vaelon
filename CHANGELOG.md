@@ -12,7 +12,7 @@
   bundle (identical).
 - Examples, hints, help, demo data and documents are neutral (no country-specific numbers, providers or currencies).
 ### Added
-- **macOS.** Vaelon runs on a Mac (macOS 12 or later). `scripts/build_mac.py` (run on a Mac) builds `Vaelon.app` and a
+- **macOS.** Vaelon runs on a Mac (macOS 14 or later, Apple silicon). `scripts/build_mac.py` (run on a Mac) builds `Vaelon.app` and a
   drag-to-Applications disk image. No paid Apple account is used: the app is signed ad hoc and not notarised, so the
   first time macOS asks once (System Settings > Privacy & Security > "Open Anyway"). On a Mac the vault's master key
   is sealed with a key kept in the macOS Keychain, notifications use Notification Center, the built-in `say` voice
@@ -52,6 +52,10 @@
   - Commands that touch Vaelon's Keychain item are refused; commands that make something start by itself get a
     warning on the card. The release workflow builds with read-only rights and a fixed Inno Setup version.
 ### Fixed
+- **macOS needs version 14** (the bundled numpy / onnxruntime are built for it) and Apple silicon: the app now says
+  so itself (`LSMinimumSystemVersion` 14.0) and every page says the same. After ElevenLabs (cap reached or not
+  answering) a Mac falls back to its own voice, like Windows. Feedback notes name the real system.
+- Texts no longer send users of the installed app to terminal commands only a source install has.
 - **The animation could disappear.** A minimised window (zero size) with two or more tasks running turned every
   particle into an invalid number and the swarm stayed empty until a restart; a lost graphics context (after a driver
   or GPU reset) was never rebuilt; if graphics could not start at all, the whole window went blank. Now a zero size is

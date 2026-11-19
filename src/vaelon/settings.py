@@ -144,12 +144,13 @@ def warnings() -> list[str]:
 
         if not INTEGRITY.get("ok", True):
             out.append("Vaelon's code was changed outside approved updates: " + "; ".join(INTEGRITY.get("problems", [])[:3])
-                       + ". If you did not change it, reinstall Vaelon. Check with: vaelon integrity verify")
+                       + ". If you did not change it, reinstall Vaelon (from a source install, check with: vaelon integrity verify)")
     except Exception:
         pass
     if config.ALERTS:
         out.append("These security settings were changed in config.json by something other than Vaelon, so the last "
-                   "trusted values are used: " + ", ".join(config.ALERTS) + ". If YOU changed them, run: vaelon config confirm")
+                   "trusted values are used: " + ", ".join(config.ALERTS) + ". Nothing else to do - if YOU changed them on purpose, "
+                   "confirm them from a source install with: vaelon config confirm")
     return out
 
 

@@ -63,7 +63,7 @@ Keys are entered **only** in Settings (or with \`vaelon key set NAME\` in a term
     id: "files",
     title: "Files, documents and attachments",
     body: `- *"Write a report about ... and save it as PDF"*, *"Make an Excel table ..."*, *"Create a 6-slide presentation ..."*: Vaelon makes the file and shows a card with **Open** and **Show in folder**.
-- Created files go to **Documents\\Vaelon** (in company mode: *Documents\\Vaelon\\Companies\\<company>*). Nothing is ever overwritten.
+- Created files go to **Documents/Vaelon** (in company mode: *Documents/Vaelon/Companies/<company>*). Nothing is ever overwritten.
 - **Paperclip**: attach a document or a picture. *"What is in this picture?"*, *"Summarise this PDF"*, *"Add this bill"*.
 - Vaelon asks before it deletes, moves or overwrites anything outside its own folder.`,
   },
@@ -143,7 +143,8 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
 - **Outside content**: after Vaelon reads a web page, an email or a file from elsewhere, the task is marked and every action needs your approval, even ones you normally allow.
 - **Encrypted on this PC**: keys, memory, chats, contacts, calendar, money, company data (AES-256; the master key is sealed by Windows DPAPI or the macOS Keychain).
 - **What leaves the PC**: only what you chose. That is a cloud model, cloud voice, web searches, and mail or phone when you send. With the local model and local voice, nothing about you leaves the computer.
-- Vaelon's own code is signed. \`vaelon doctor\` checks the setup, and \`vaelon integrity verify\` checks the code.`,
+- Vaelon's own source files carry an integrity signature (the installers themselves are not code-signed). From a source install, \`vaelon doctor\` checks the setup and \`vaelon integrity verify\` checks the code.
+- On a Mac, macOS may ask once after an update whether Vaelon may use its Keychain item: choose **Always Allow**. If you deny it, nothing is lost - Vaelon just cannot open its vault until you allow it.`,
   },
   {
     id: "memory",
