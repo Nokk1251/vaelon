@@ -30,7 +30,7 @@ jobs:
         run: echo "version=$(python -c "import re; print(re.search(r'__version__ = \"(.+?)\"', open('src/vaelon/__init__.py').read()).group(1))")" >> "$GITHUB_OUTPUT"
       - name: Install
         run: |
-          pip install -e ".[system,search,docs,vision,app]" "piper-tts>=1.2" numpy pyinstaller cyclonedx-bom
+          pip install -e ".[system,search,docs,vision,app,live]" "piper-tts>=1.2" numpy pyinstaller cyclonedx-bom
       - name: Tests
         shell: bash
         run: |
@@ -111,7 +111,13 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with: { path: release, merge-multiple: true }
       - name: Checksums
-        run: cd release && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+        run: |
+          cd release
+          rm -f SHA256SUMS.txt
+          sha256sum -- * > ../SHA256SUMS.txt
+          mv ../SHA256SUMS.txt .
+          sha256sum -c SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           tag_name: v${{ needs.windows.outputs.version }}

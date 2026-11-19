@@ -205,6 +205,8 @@ class BuildScripts(unittest.TestCase):
         for name in ("run", "_has", "prune", "EXCLUDE", "PKG", "WEB"):
             self.assertTrue(hasattr(app, name), name)
         self.assertIs(mac.run, app.run)
+        self.assertTrue(app._has("json"))
+        self.assertFalse(app._has("no_such_module_vaelon"))
         root = Path(tempfile.mkdtemp())  # a pruned bundle: a link whose target was deleted must go, a good one stays
         (root / "Resources").mkdir()
         (root / "Resources" / "kept.txt").write_text("x", "utf-8")
@@ -215,8 +217,6 @@ class BuildScripts(unittest.TestCase):
             self.skipTest("this system does not allow symbolic links for this user")
         self.assertEqual(mac.drop_broken_links(root), ["bad"])
         self.assertTrue((root / "good").exists())
-        self.assertTrue(app._has("json"))
-        self.assertFalse(app._has("no_such_module_vaelon"))
 
 
 if __name__ == "__main__":
