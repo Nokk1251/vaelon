@@ -74,6 +74,24 @@ class SpokenRequest(unittest.TestCase):
         self.assertIn({"type": "tool", "name": "now"}, notes)
         self.assertEqual(len(svc.agent().history), 2)  # it is part of the one shared conversation
 
+    def test_a_task_that_finished_at_once_still_reports_its_tool(self):  # the loop never saw it running
+        class Job:
+            status, tool, files, cancelled, answer, rev, approval = "done", "now", [], False, "Done.", 3, None
+
+            def wait_change(self, rev, timeout):
+                pass
+
+        class Svc:
+            jobs = {"j1": Job()}
+
+            def start(self, request, spoken=False, screen=False):
+                return "j1"
+
+        notes = []
+        self.assertEqual(live.ask_vaelon(Svc(), "quick one", False, notes.append), "Done.")
+        self.assertIn({"type": "tool", "name": "now"}, notes)
+        self.assertEqual((notes[0]["type"], notes[-1]["type"]), ("task", "task_done"))
+
     def test_dangerous_actions_still_need_the_approval_card(self):
         root = tempfile.mkdtemp()
         victim = os.path.join(root, "keep.txt")

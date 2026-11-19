@@ -142,6 +142,8 @@ def ask_vaelon(service, request: str, screen: bool, notify) -> str:
                     "summary": job.approval.get("summary", ""), "note": job.approval.get("note", "")})
         elif job.status != "approval":
             asked = False
+    if job.tool and job.tool != tool:  # a fast task can use a tool and finish between two looks: still say which
+        notify({"type": "tool", "name": job.tool})
     if job.files:
         notify({"type": "files", "files": job.files})
     notify({"type": "task_done", "job": jid})
