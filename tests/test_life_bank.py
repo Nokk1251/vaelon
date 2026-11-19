@@ -124,7 +124,10 @@ class LifeEvents(unittest.TestCase):
         self.assertTrue(study and all(e["title"].startswith("Учене (математика)") for e in study))
         self.assertIn("пробен изпит", study[-1]["title"])
         self.assertTrue(all(A.parse_iso(e["start"]).date() < ex["when"].date() for e in study))
-        a = ask("I have a history exam on Friday at 9")
+        # a weekday 4 days ahead: "on Friday" said on a Thursday after 19:00 leaves no study day at all (that answer is
+        # right, but the test must not depend on the day and hour it runs)
+        weekday = (T + timedelta(days=4)).strftime("%A")
+        a = ask(f"I have a history exam on {weekday} at 9")
         self.assertTrue(a.startswith("Saved: Exam: history"), a)
         a = ask("topics: WW1, WW2 and the Cold War; 45 min a day at 19")
         self.assertIn("45 min a day at 19:00", a)
