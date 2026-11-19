@@ -21,8 +21,11 @@ PREFIX = b"mk1:"
 
 
 def _keyring():
-    import keyring  # macOS backend: the Security framework (Keychain)
-
+    try:
+        import keyring  # macOS backend: the Security framework (Keychain)
+    except ImportError as e:  # a base dependency on macOS; say what to do instead of a bare traceback
+        raise OSError("Vaelon keeps its key in the macOS Keychain and needs the 'keyring' package: "
+                      "pip install keyring") from e
     return keyring
 
 
