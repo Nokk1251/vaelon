@@ -1,0 +1,32 @@
+Vaelon - a private, open-source AI agent
+Copyright (C) 2026 Nokk_7 (the original author) - https://github.com/Nokk1251
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+(the LICENSE file) for more details.
+
+ADDITIONAL TERMS under section 7 of the GNU General Public License, version 3
+------------------------------------------------------------------------------
+7(b) Author attribution. Every copy and every modified version of this program must preserve, unchanged
+     and clearly visible:
+       - this NOTICE file,
+       - the line "Vaelon - originally created by Nokk_7" in the README, and
+       - the same line in the "About" screen of the application and in the output of `vaelon about`
+         (the Appropriate Legal Notices that the program displays).
+     You may add your own name next to it for your changes; you may not remove or hide the original one.
+
+7(c) No misrepresentation. Modified versions must be marked as modified, must not be presented as the
+     original program, and must say what was changed and when.
+
+7(e) Names and marks. This license does not grant permission to use the author's name, or the project's
+     name and logo, to endorse or promote products derived from this program, except as required for the
+     attribution above.
+
+In short: you may use, study, share and change Vaelon, also commercially - but every version you pass on
+must stay open source under the same license, and must keep saying who created it.
+
+Third-party components keep their own licenses: see THIRD_PARTY.md.

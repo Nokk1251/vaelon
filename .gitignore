@@ -1,0 +1,34 @@
+__pycache__/
+*.pyc
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.env
+src/vaelon/webui/
+build/
+dist/
+*.spec
+
+# private working notes and local tool settings (never published)
+CLAUDE.md
+.claude/
+installer/Output/
+release/
+NEXT_CHAT.md
+versions/
+# signing keys never belong in the repository
+*.pfx
+*.p12
+*.pvk
+*.key
+*.pem
+# local build / tool output and environment files
+*.egg-info/
+.env.*
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

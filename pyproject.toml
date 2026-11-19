@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vaelon"
+version = "0.18.0"
+description = "Vaelon - a private, open-source, voice+text AI agent that acts on your machine, phone and inbox"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "GPL-3.0-or-later" }
+authors = [{ name = "Nokk_7" }]
+dependencies = ["requests>=2.34.2", "urllib3>=2.8.0", "certifi>=2026.10.23", "cryptography>=50.0.2"]  # security floors (vaelon doctor checks OSV)
+
+[project.optional-dependencies]
+system = ["psutil>=5.9", "send2trash>=1.8"]
+voice = ["faster-whisper>=1.0", "sounddevice>=0.4", "numpy>=1.24", "pyttsx3>=2.90", "piper-tts>=1.2"]
+search = ["ddgs>=9"]
+docs = ["pypdf>=4", "python-docx>=1", "fpdf2>=2.8", "openpyxl>=3.1", "python-pptx>=1.0"]
+vision = ["pillow>=10"]
+app = ["pywebview>=5"]
+live = ["websockets>=13"]
+mac = ["keyring>=24; sys_platform == 'darwin'"]  # the macOS Keychain holds the vault's key
+all = ["vaelon[system,voice,search,docs,vision,app,live,mac]"]
+
+[project.scripts]
+vaelon = "vaelon.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+vaelon = ["data/**/*"]
