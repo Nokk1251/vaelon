@@ -26,8 +26,9 @@ Then in the repository settings: turn on *Private vulnerability reporting*, *Dep
 screen shows it and `vaelon update` starts working.
 
 ## 4. Automatic checks (ready)
-`.github/workflows/ci.yml` runs every test file on Windows, Linux and macOS, type-checks the UI and scans for secrets
-on each push and pull request.
+`.github/workflows/ci.yml` runs the core test files on Windows, Linux and macOS (pull requests: macOS with Python 3.13
+only; a push to main and a weekly run: Python 3.10 and 3.13 everywhere), type-checks the UI and scans for secrets.
+`release.yml` runs all test files before it builds the installers.
 
 ## 5. Releases (ready)
 ```bash

@@ -1,19 +1,30 @@
-# Quick checks on Linux, Windows and macOS for every pull request and push to main (free for a public repository).
+# Quick checks on Linux, Windows and macOS (free for a public repository).
+# Pull requests test macOS with Python 3.13 only (macOS runners often queue for a long time);
+# a push to main, the weekly run and a manual run test the full matrix, macOS with Python 3.10 included.
 name: ci
 on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 5 * * 1"  # Mondays 05:17 UTC
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:  # a new push to a pull request stops its older, now useless run (less load on the queue)
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   test:
+    timeout-minutes: 30  # a hanging test stops; the time waiting for a machine does not count
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python: ["3.10", "3.13"]
+        exclude:  # 'none' matches nothing outside pull requests
+          - os: ${{ github.event_name == 'pull_request' && 'macos-latest' || 'none' }}
+            python: "3.10"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
