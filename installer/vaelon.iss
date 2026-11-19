@@ -1,5 +1,5 @@
 ; Inno Setup script: turns dist\Vaelon (made by scripts\build_app.py) into Vaelon-Setup-<version>.exe
-;   "%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" /DAppVersion=0.18.0 installer\vaelon.iss
+;   "%LOCALAPPDATA%\Programs\Inno Setup 7\ISCC.exe" /DAppVersion=0.18.0 installer\vaelon.iss
 ; Installs into Program Files (one administrator prompt): only an administrator can change the program files there, so
 ; no other program can swap or plant files in Vaelon (white-hat review 2026-11-18). Vaelon itself then runs as the
 ; normal user. Your data in %USERPROFILE%\.vaelon and Documents\Vaelon is NEVER touched by install, update or uninstall.

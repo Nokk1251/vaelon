@@ -34,6 +34,7 @@ jobs:
       - run: python -I tests/test_companion.py
       - run: python -I tests/test_rename.py
       - run: python -I tests/test_live.py
+      - run: python -I tests/test_macos.py
   web:
     runs-on: ubuntu-latest
     steps:
