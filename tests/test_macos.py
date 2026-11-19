@@ -54,6 +54,27 @@ class Vault(unittest.TestCase):
             with self.assertRaises(OSError):
                 vault.unseal(b"plain text planted in the file")
 
+    def test_missing_keyring_says_what_to_install(self):
+        real = sys.platform
+        sys.modules["keyring"] = None  # "not installed": import raises ImportError
+        sys.platform = "darwin"
+        try:
+            with self.assertRaises(OSError) as e:
+                vault.seal(b"x")
+            self.assertIn("pip install keyring", str(e.exception))
+        finally:
+            sys.platform = real
+            sys.modules.pop("keyring", None)
+
+    def test_keyring_is_a_base_dependency_on_macos(self):
+        try:
+            import tomllib  # Python 3.11+
+        except ImportError:
+            self.skipTest("tomllib needs Python 3.11")
+
+        deps = tomllib.loads((Path(__file__).parent.parent / "pyproject.toml").read_text("utf-8"))["project"]["dependencies"]
+        self.assertTrue(any(d.startswith("keyring") and "darwin" in d for d in deps))
+
     def test_write_and_read_a_secret_on_a_mac(self):
         with mac():
             vault.write_secret("key_TEST", b"value-123")
