@@ -209,13 +209,11 @@ class SpokenAndNotices(unittest.TestCase):
         self.assertIn("GNU GENERAL PUBLIC LICENSE", Path(root, "LICENSE").read_text("utf-8")[:300])
         self.assertIn("7(b)", Path(root, "NOTICE").read_text("utf-8"))
 
-    def test_update_check_is_off_without_a_repository_and_compares_versions(self):
+    def test_update_check_compares_versions(self):  # the rest of the check: tests/test_updates.py
         self.assertTrue(updates.newer("1.2.0", "1.1.9"))
         self.assertFalse(updates.newer("0.2.0", "0.2.0"))
         self.assertFalse(updates.newer("v0.1.9", "0.2.0"))
-        if not updates._repo():
-            self.assertFalse(updates.check()["enabled"])
-            self.assertIn("off", updates.report())
+        self.assertTrue(updates.newer("0.10.0", "0.9.9"))
 
 
 if __name__ == "__main__":

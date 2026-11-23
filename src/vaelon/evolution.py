@@ -35,7 +35,7 @@ PROTECTED_FILES = {"evolution.py", "tools/registry.py", "server.py", "config.py"
                    "company.py", "company_api.py", "journal.py", "settings.py", "mcp.py", "learning.py", "live.py",
                    "conversation.py", "feedback.py", "tools/files.py", "tools/comms.py", "skills.py",
                    "__init__.py", "providers.py", "tools/system.py", "tools/__init__.py", "channels/telegram.py",
-                   "tts.py", "voicestream.py", "focus.py", "scheduler.py"}
+                   "tts.py", "voicestream.py", "focus.py", "scheduler.py", "updates.py"}
 # Defence in depth only: any module that is imported can in principle patch another at run time - the owner's
 # approval of the shown diff (and the full test run) is the real gate.
 CARD_LIMIT = 6000  # the approval card shows the whole diff; a bigger change is refused (ask for smaller steps)

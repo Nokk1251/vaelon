@@ -33,7 +33,7 @@ HOME = _home()
 # of these (vault) - written only by Vaelon's own save. A value changed in the file by something else is not used:
 # the last trusted value is, and the owner is told (Settings banner; `vaelon config confirm` accepts the file).
 GUARDED = ("provider", "base_url", "api_key_env", "allowed_roots", "auto_approve", "output_dir", "api_port", "fallbacks",
-           "telegram_allowed_chats", "update_repo")
+           "telegram_allowed_chats")
 ALERTS: list[str] = []  # guarded fields that were changed outside Vaelon (shown to the owner)
 
 
@@ -96,7 +96,7 @@ class Config:
     live_voice: str = "Charon"  # one of Google's built-in Live voices
     vision_cloud_model: str = ""  # cloud model that looks at pictures; empty = the known one for your provider
     output_dir: str = ""  # where created files go; empty = ~/Documents/Vaelon
-    update_repo: str = ""  # owner/name of the public GitHub repository; empty = no update check
+    update_check: bool = False  # ask GitHub once a day whether a newer Vaelon exists (off until the user turns it on)
     setup_done: bool = False  # the first-run setup in the app was finished (or skipped)
     profiles: list = field(default_factory=list)  # optional focus: business, learning, coding, creator, life (focus.py)
 
@@ -144,6 +144,10 @@ class Config:
                     else:
                         data[k] = sealed[k]
                 ALERTS[:] = changed
+        for f in fields(cls):  # an on/off setting is true/false (or 1/0); anything else ("no", "false") -> its default
+            v = data.get(f.name)
+            if f.type in ("bool", bool) and f.name in data and not isinstance(v, bool):
+                data[f.name] = bool(v) if type(v) is int and v in (0, 1) else f.default
         return cls(**{k: v for k, v in data.items() if k in names})
 
     def save(self) -> None:

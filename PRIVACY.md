@@ -35,6 +35,7 @@ Erase at any time: `/clear` in the app (the open conversation), the ❏ list (an
 | A search key you stored (Tavily or Brave Search) | The search words of a web search - never the conversation | That search service |
 | An MCP server you added (`vaelon mcp add`) | What Vaelon passes to its tools - shown to you before every call unless you allowed that tool | That program or service |
 | Telegram, email, SMS, calls | The messages you ask Vaelon to send | Telegram / your mail server / Twilio |
+| The update check (Settings > Updates: off by default; or **Check now**, `vaelon update`) | Nothing about you: one request for the newest version number - at most once a day (also across restarts); **Check now** / `vaelon update` at most once a minute. GitHub sees your IP address, as any website does. Nothing is downloaded or installed by itself | GitHub |
 
 With the default local setup (Ollama model, Piper voice, local Whisper) none of the above happens.
 When you start talking or typing, Vaelon may open a connection to the cloud services you have chosen so that it is

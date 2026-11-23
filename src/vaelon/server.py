@@ -532,7 +532,7 @@ def make_handler(service: Service, token: str, port: int):
                 if not proof.valid_nonce(n):
                     return self._send(400, {"error": "bad nonce"})
                 return self._send(200, {"proof": proof.proof(token, "vaelon-core", n)})
-            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local")):
+            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local", "/update")):
                 return self._static()
             if not self._authed():
                 return self._send(403 if self._foreign() else 401, {"error": "unauthorized"})
@@ -629,6 +629,15 @@ def make_handler(service: Service, token: str, port: int):
                                         # Ollama on another computer: the advice below is for THIS one
                                         "remote": host not in ("localhost", "127.0.0.1", "::1"),
                                         "models": localmodels.assess(m, seen["models"], in_use)})
+            if route == "/update":  # is there a newer Vaelon? only when the user turned it on or pressed "Check now"
+                from . import updates
+
+                now = parse_qs(self.path.partition("?")[2]).get("now", [""])[0] == "1"
+                if not (now or service.cfg.update_check):
+                    return self._send(200, {"enabled": False, "off": True})
+                c = updates.check(force=now)
+                return self._send(200, {k: c.get(k) for k in ("enabled", "current", "latest", "newer", "url", "error",
+                                                              "checking")})
             if route == "/models":
                 from . import settings
 

@@ -291,5 +291,94 @@ class Marks(unittest.TestCase):  # WH2-06 / WH2-07
             self.assertIn("start by itself", cards[-1].note, cmd)
 
 
+class SlowServer(unittest.TestCase):
+    """White-hat N1 (2026-11-23): the watchdog called r.close(), which waits for the hanging read it should stop (it
+    needs the lock the reading thread holds) - a page dripping one byte at a time held a task for as long as it liked.
+    The watchdog now shuts the socket down, which ends the read at once."""
+
+    def setUp(self):
+        import socket
+        import threading
+
+        self.stop = threading.Event()
+        self.srv = socket.socket()
+        self.srv.bind(("127.0.0.1", 0))
+        self.srv.listen(4)
+        self.url = f"http://127.0.0.1:{self.srv.getsockname()[1]}/"
+        self.kind = "text/html"
+        threading.Thread(target=self.serve, daemon=True).start()
+
+    def tearDown(self):
+        self.stop.set()
+        self.srv.close()
+
+    def serve(self):
+        import threading
+
+        while not self.stop.is_set():
+            try:
+                c, _ = self.srv.accept()
+            except OSError:
+                return
+            threading.Thread(target=self.drip, args=(c,), daemon=True).start()
+
+    def drip(self, c):
+        import time
+
+        try:
+            c.recv(4096)
+            c.sendall(f"HTTP/1.1 200 OK\r\nContent-Type: {self.kind}\r\nContent-Length: 600\r\n\r\n".encode())
+            for _ in range(600):  # 1 byte every 0.3 s: ~3 minutes if nothing cuts it
+                if self.stop.is_set():
+                    break
+                c.sendall(b"a")  # never a whole line or chunk: only the watchdog can end the read
+                time.sleep(0.3)
+        except OSError:
+            pass
+        finally:
+            c.close()
+
+    def test_a_dripping_page_is_cut_in_time(self):
+        import time
+
+        import requests
+
+        r = requests.get(self.url, stream=True, timeout=5)
+        t0 = time.monotonic()
+        try:
+            web._capped(r, 10_000, seconds=0.5, grace=0.5)
+        except Exception:
+            pass  # nothing read before the cut: an error is fine - waiting is not
+        self.assertLess(time.monotonic() - t0, 3.0)
+
+    def test_the_cut_never_fails_even_on_a_closed_answer(self):
+        class Raw:
+            def shutdown(self):
+                raise ValueError("already closed")
+
+        class R:
+            raw = Raw()
+            closed = False
+
+            def close(self):
+                R.closed = True
+        web.cutter(R())()  # no exception, falls back to close
+        self.assertTrue(R.closed)
+
+    def test_a_dripping_mcp_stream_is_cut_in_time(self):
+        import time
+
+        import requests
+
+        from vaelon import mcp
+
+        self.kind = "text/event-stream"
+        r = requests.get(self.url, stream=True, timeout=5)
+        t0 = time.monotonic()
+        with self.assertRaises((mcp.McpError, requests.RequestException)):  # what _Http.post catches
+            mcp._Http._stream(r, 1, timeout=0.5)
+        self.assertLess(time.monotonic() - t0, 8.0)  # the call's timeout + 5 s of grace, not minutes
+
+
 if __name__ == "__main__":
     unittest.main()

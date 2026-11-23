@@ -400,9 +400,15 @@ export default function VaelonShell() {
       .then((s) => {
         if (s.first_run) setSetup(s);
         setWarnings(s.warnings ?? []); // code or security settings changed outside Vaelon: the owner must see it
+        if (s.update_check) {
+          // the user turned the daily check on: say so once when a newer version exists (details in Settings)
+          void new VaelonApi(token).updateCheck()
+            .then((u) => u.newer && note(tRef.current.updateNote.replace("{latest}", u.latest)))
+            .catch(() => undefined);
+        }
       })
       .catch(() => undefined);
-  }, [token]);
+  }, [token, note]);
 
   // reminders that fired and results of scheduled tasks: shown, and read aloud when the voice is on
   useEffect(() => {
