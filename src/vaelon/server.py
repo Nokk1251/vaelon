@@ -605,7 +605,7 @@ def make_handler(service: Service, token: str, port: int):
             if route == "/ollama/pull":  # how far the download of the local model is
                 from . import modelpull
 
-                return self._send(200, modelpull.status())
+                return self._send(200, modelpull.status(service.cfg))
             if route == "/models":
                 from . import settings
 
@@ -745,7 +745,8 @@ def make_handler(service: Service, token: str, port: int):
                 origin = self.headers.get("Origin", "")
                 if origin and not origin.startswith(LOCAL_ORIGINS):
                     return self._send(403, {"error": "only the app itself may start a download"})
-                return self._send(200, {"ok": True, **modelpull.start(service.cfg)})
+                got = modelpull.start(service.cfg)
+                return self._send(200, {"ok": not got.get("error") or got.get("running"), **got})
             if self.path in ("/key", "/settings"):
                 from . import settings
 

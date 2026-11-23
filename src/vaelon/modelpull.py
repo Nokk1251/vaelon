@@ -16,7 +16,8 @@ import time
 
 import requests
 
-NAME_RX = re.compile(r"^[a-z0-9][a-z0-9._-]{0,80}(?::[a-z0-9._-]{1,40})?$")  # e.g. qwen3:4b-instruct
+# e.g. qwen3:4b-instruct, llama3.1:8b-instruct-q4_K_M, user/model:tag, hf.co/user/model (only ever sent as JSON)
+NAME_RX = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,80}(?:/[A-Za-z0-9._-]{1,80}){0,2}(?::[A-Za-z0-9._-]{1,80})?\Z")  # \Z: "$" would also allow a newline at the end
 
 _lock = threading.Lock()
 _state: dict = {"running": False, "model": "", "status": "", "completed": 0, "total": 0, "error": "", "done": False,
@@ -32,9 +33,12 @@ def _target(cfg) -> tuple[str, str]:
     return base.rstrip("/"), model
 
 
-def status() -> dict:
+def status(cfg=None) -> dict:
+    """The download's state. With `cfg`: an earlier, finished download of ANOTHER model is not reported as this one."""
     with _lock:
         s = dict(_state)
+    if cfg is not None and not s["running"] and s["model"] != _target(cfg)[1]:
+        s.update(model=_target(cfg)[1], status="", completed=0, total=0, error="", done=False)
     s["percent"] = round(100 * s["completed"] / s["total"], 1) if s["total"] else 0.0
     return s
 
@@ -43,15 +47,19 @@ def start(cfg) -> dict:
     """Begin the download in the background (or report the one that is running)."""
     base, model = _target(cfg)
     if not NAME_RX.match(model):
-        return {**status(), "error": "the configured local model name is not valid"}
+        return {**status(cfg), "running": False, "done": False, "error": "the configured local model name is not valid"}
     with _lock:  # status() takes the same lock: never call it while holding it
         already = _state["running"]
         if not already:
             _state.update(running=True, model=model, status="starting", completed=0, total=0, error="", done=False,
                           started=time.time())
     if not already:
-        threading.Thread(target=_pull, args=(base, model), daemon=True, name="vaelon-model-pull").start()
-    return status()
+        try:
+            threading.Thread(target=_pull, args=(base, model), daemon=True, name="vaelon-model-pull").start()
+        except RuntimeError:  # could not start a thread: never leave "running" switched on
+            with _lock:
+                _state.update(running=False, error="could not start the download")
+    return status(cfg)
 
 
 def _pull(base: str, model: str) -> None:
@@ -61,7 +69,11 @@ def _pull(base: str, model: str) -> None:
         with requests.post(f"{base}/api/pull", json={"model": model, "stream": True}, stream=True,
                            timeout=(5, 300)) as r:
             if r.status_code != 200:
-                error = f"Ollama answered {r.status_code}"
+                try:
+                    said = str(r.json().get("error", ""))[:200]
+                except (ValueError, AttributeError):
+                    said = ""
+                error = f"Ollama answered {r.status_code}" + (f": {said}" if said else "")
             else:
                 for line in r.iter_lines():
                     if not line:
@@ -69,6 +81,8 @@ def _pull(base: str, model: str) -> None:
                     try:
                         msg = json.loads(line)
                     except ValueError:
+                        continue
+                    if not isinstance(msg, dict):
                         continue
                     if msg.get("error"):
                         error = str(msg["error"])[:200]
@@ -84,10 +98,13 @@ def _pull(base: str, model: str) -> None:
                         break
     except requests.RequestException as e:
         error = "Ollama is not answering" if isinstance(e, requests.ConnectionError) else f"download failed ({type(e).__name__})"
-    with _lock:
-        _state["running"] = False
-        _state["done"] = finished and not error
-        _state["error"] = error or ("" if finished else "the download stopped before it finished")
-        if _state["done"]:
-            _state["status"] = "success"
-            _state["completed"] = _state["total"] = max(_state["total"], _state["completed"])
+    except Exception as e:  # an answer of an unexpected shape (another program on that address, a new Ollama)
+        error = f"unexpected answer from Ollama ({type(e).__name__})"
+    finally:  # whatever happened, the download is over: never leave "running" switched on
+        with _lock:
+            _state["running"] = False
+            _state["done"] = finished and not error
+            _state["error"] = error or ("" if finished else "the download stopped before it finished")
+            if _state["done"]:
+                _state["status"] = "success"
+                _state["completed"] = _state["total"] = max(_state["total"], _state["completed"])

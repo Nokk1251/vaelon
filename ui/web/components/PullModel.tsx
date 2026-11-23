@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { VaelonApi, type PullStatus } from "@/lib/vaelonApi";
 
 type T = { downloadModel: string; downloadingModel: string; modelReadyNow: string; downloadAgain: string };
@@ -12,6 +12,10 @@ const gb = (n: number) => (n / 1e9).toFixed(n >= 1e9 ? 1 : 2);
 export default function PullModel({ token, t, onDone }: { token: string; t: T; onDone: () => void }) {
   const [s, setS] = useState<PullStatus | null>(null);
   const [problem, setProblem] = useState("");
+  const doneRef = useRef(onDone);
+  useEffect(() => {
+    doneRef.current = onDone;
+  });
 
   const look = useCallback(async () => {
     try {
@@ -32,10 +36,10 @@ export default function PullModel({ token, t, onDone }: { token: string; t: T; o
     if (!running) return;
     const id = window.setInterval(async () => {
       const next = await look();
-      if (next && !next.running && next.done) onDone();
+      if (next && !next.running && next.done) doneRef.current();
     }, 1000);
     return () => window.clearInterval(id);
-  }, [running, look, onDone]);
+  }, [running, look]);
 
   const start = async () => {
     setProblem("");
@@ -48,11 +52,13 @@ export default function PullModel({ token, t, onDone }: { token: string; t: T; o
     }
   };
 
-  if (s?.done && !running) return <p className="small good">{t.modelReadyNow}</p>;
+  if (s?.done && !running) return <p className="small good" role="status">{t.modelReadyNow}</p>;
   if (running && s) {
     return (
-      <div className="pull" aria-live="polite">
-        <div className="pull-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={s.percent}>
+      <div className="pull">
+        <div className="pull-bar" role="progressbar" aria-label={`${t.downloadingModel} ${s.model}`} aria-valuemin={0}
+          aria-valuemax={100} aria-valuenow={s.total ? Math.floor(s.percent) : undefined}
+          aria-valuetext={s.total ? `${Math.floor(s.percent)}%` : s.status}>
           <i style={{ width: `${s.percent}%` }} />
         </div>
         <p className="muted small">
@@ -66,7 +72,7 @@ export default function PullModel({ token, t, onDone }: { token: string; t: T; o
       <button type="button" className="btn" onClick={() => void start()}>
         {s?.error ? t.downloadAgain : t.downloadModel}
       </button>
-      {(problem || s?.error) && <span className="small bad">{problem || s?.error}</span>}
+      {(problem || s?.error) && <span className="small bad" role="status">{problem || s?.error}</span>}
     </div>
   );
 }

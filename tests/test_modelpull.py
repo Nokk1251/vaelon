@@ -33,6 +33,10 @@ class FakeOllama(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/x-ndjson")
         self.end_headers()
         lines = [{"status": "pulling manifest"}]
+        if FakeOllama.mode == "odd":  # an answer of an unexpected shape
+            for raw in (b'{"status":"pulling"}\n', b"null\n", b'{"digest":"x","total":"abc"}\n'):
+                self.wfile.write(raw)
+            return
         if FakeOllama.mode == "error":
             lines.append({"error": "pull model manifest: file does not exist"})
         else:
@@ -108,6 +112,32 @@ class Pull(unittest.TestCase):
         self.assertIn("not valid", s["error"])
         self.assertEqual(SEEN, [])
 
+    def test_an_answer_of_an_unexpected_shape_ends_the_download(self):  # review MEDIUM-1
+        FakeOllama.mode = "odd"
+        modelpull.start(self.cfg())
+        s = wait_done()
+        self.assertFalse(s["running"])
+        self.assertTrue(s["error"])
+        FakeOllama.mode = "ok"
+        modelpull.start(self.cfg())  # and a new download can start again
+        self.assertTrue(wait_done()["done"])
+
+    def test_ready_for_one_model_is_not_ready_for_another(self):  # review MEDIUM-2
+        modelpull.start(self.cfg("qwen3:4b-instruct"))
+        self.assertTrue(wait_done()["done"])
+        other = modelpull.status(self.cfg("llama3.1:8b"))
+        self.assertFalse(other["done"])
+        self.assertEqual(other["model"], "llama3.1:8b")
+
+    def test_a_new_installation_downloads_the_model_the_setup_offers(self):  # review HIGH-1
+        self.assertEqual(modelpull._target(Config())[1], PRESETS["local"]["model"])
+
+    def test_real_ollama_names_pass_and_odd_ones_do_not(self):  # review LOW-3
+        for ok in ("qwen3:4b-instruct", "llama3.1:8b-instruct-q4_K_M", "user/model:tag", "hf.co/user/model"):
+            self.assertTrue(modelpull.NAME_RX.match(ok), ok)
+        for bad in ("evil model", "a;rm", "a\nb", "qwen3\n", "../x", ":tag", "a:b:c"):
+            self.assertFalse(modelpull.NAME_RX.match(bad), bad)
+
     def test_ollama_not_running(self):
         self.srv.shutdown()
         self.srv.server_close()
@@ -130,8 +160,9 @@ class Route(unittest.TestCase):
         threading.Thread(target=httpd.serve_forever, daemon=True).start()
         url = f"http://127.0.0.1:{httpd.server_address[1]}/ollama/pull"
         try:
-            for headers, want in (({}, 401), ({"Authorization": f"Bearer {token}", "Origin": "https://evil.example"}, 403)):
-                req = urllib.request.Request(url, data=b"{}", headers={"Content-Type": "application/json", **headers})
+            evil = {"Authorization": f"Bearer {token}", "Origin": "https://evil.example"}
+            for headers, want, body in (({}, 401, b"{}"), (evil, 403, b"{}"), (evil, 403, None)):  # POST, POST, GET
+                req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json", **headers})
                 with self.assertRaises(urllib.error.HTTPError) as e:
                     urllib.request.urlopen(req, timeout=5)
                 self.assertEqual(e.exception.code, want)
