@@ -112,6 +112,9 @@ export type ChatRow = { id: string; title: string; updated: number; count: numbe
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 export type ChatsAnswer = { ok: boolean; error?: string | null; chats: ChatRow[]; current: string; messages: ChatMessage[] };
 
+export type PullStatus = { ok?: boolean; running: boolean; model: string; status: string; completed: number; total: number;
+  percent: number; error: string; done: boolean };
+
 export class VaelonApi {
   constructor(private token: string) {}
 
@@ -136,6 +139,15 @@ export class VaelonApi {
   /** What the Settings screen shows. `probe` also looks whether the local model server (Ollama) is running. */
   settings(probe = false): Promise<Settings> {
     return this.req("GET", `/settings${probe ? "?probe=1" : ""}`);
+  }
+
+  /** Ask the user's Ollama to download the local model Vaelon is set to use (never another one). */
+  pullModel(): Promise<PullStatus & { ok: boolean }> {
+    return this.ask("/ollama/pull", {});
+  }
+
+  pullStatus(): Promise<PullStatus> {
+    return this.req("GET", "/ollama/pull");
   }
 
   saveSettings(changes: SettingsChange): Promise<{ ok: boolean; error?: string | null; settings: Settings }> {

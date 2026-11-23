@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { VaelonApi, type KeyRow, type ModelPreset, type Settings, type SettingsChange } from "@/lib/vaelonApi";
 import { STRINGS, type Lang, type Strings } from "@/lib/i18n";
 import GetOllama from "./GetOllama";
+import PullModel from "./PullModel";
 import ProfilePicker from "./ProfilePicker";
 import { readPrefs, writePrefs, type Prefs } from "@/lib/prefs";
 
@@ -269,9 +270,13 @@ export default function SettingsPanel(props: { token: string; lang: Lang; onClos
                 </>
               )}
               {s.preset === "local" && s.ollama?.reachable && !s.ollama.models.includes(s.model) && (
-                <p className="small bad">
-                  {t.ollamaNoModel} <code>ollama pull {s.model}</code>
-                </p>
+                <>
+                  <p className="small bad">{t.ollamaNoModel}</p>
+                  <PullModel token={token} t={t} onDone={() => void new VaelonApi(token).settings(true).then(take).catch(() => undefined)} />
+                  <p className="muted small">
+                    {t.orTerminal} <code>ollama pull {s.model}</code>
+                  </p>
+                </>
               )}
               <div className="keyform">
                 {models ? (

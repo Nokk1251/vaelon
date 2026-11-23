@@ -404,6 +404,9 @@ pre.cmd { font: 12.5px/1.6 var(--mono); color: var(--accent-2); background: var(
 .btn.wide { width: 100%; margin: 6px 0 12px; }
 a.btn { text-decoration: none; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
+.pull { margin: 8px 0; }
+.pull-bar { height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-3); border: 1px solid var(--border); }
+.pull-bar > i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
 .keyrow { padding: 14px 0; border-bottom: 1px solid var(--border); }
 .keyrow > p { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 4px 0 8px; }
 .keyhead { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

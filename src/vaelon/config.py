@@ -60,7 +60,7 @@ def guard_seal(data: dict) -> None:
 @dataclass
 class Config:
     provider: str = "ollama"  # ollama | openai | anthropic | mock
-    model: str = "qwen3:8b"
+    model: str = "qwen3:4b-instruct"  # = providers.PRESETS["local"]["model"] (what the setup offers to download)
     base_url: str = ""
     address_as: str = "Boss"
     language: str = "auto"  # reply in the user's language

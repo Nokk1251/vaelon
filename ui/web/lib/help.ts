@@ -17,7 +17,7 @@ export const HELP: HelpSection[] = [
 
 **Starting Vaelon**: Windows - Start menu > Vaelon. Mac - Applications > Vaelon (or Spotlight). The first time on a Mac, macOS asks you to allow it: System Settings > Privacy & Security > **Open Anyway**.
 
-**A model is needed** for conversations, files and research: install the free Ollama app (Settings has a **Get Ollama** button) and run \`ollama pull qwen3:4b-instruct\`, or add a cloud key in Settings. See *Where the thinking happens*.`,
+**A model is needed** for conversations, files and research: install the free Ollama app (Settings has a **Get Ollama** button), then press **Download the model** there, or add a cloud key in Settings. See *Where the thinking happens*.`,
   },
   {
     id: "profiles",
@@ -161,7 +161,7 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
     body: `- **Slow answers** with the local model: that is the computer's speed (the model runs on the CPU). A cloud model in Settings is much faster.
 - **"Core offline"**: close Vaelon and start it again (from a source install: \`vaelon app\`).
 - **Ollama is not answering**: install it with **Get Ollama** in Settings and start it (on a Mac it shows a llama in the menu bar).
-- **The local model is missing**: run \`ollama pull <model>\` in a terminal (Settings shows the exact command).
+- **The local model is missing**: press **Download the model** in Settings (or run \`ollama pull <model>\` in a terminal).
 - **No voice**: add a system voice for that language (see *Voice*).
 - **The microphone does not hear you**: Windows - Settings > Privacy & security > Microphone, allow desktop apps. Mac - System Settings > Privacy & Security > Microphone, switch Vaelon on. In the companion, click once to allow audio.
 - **Web search finds nothing**: the free search engines limit how often they answer. Wait a minute, or add a Tavily or Brave key in Settings.

@@ -6,6 +6,7 @@ import { STRINGS, type Lang } from "@/lib/i18n";
 import { KeyField } from "./SettingsPanel";
 import ProfilePicker from "./ProfilePicker";
 import GetOllama from "./GetOllama";
+import PullModel from "./PullModel";
 
 const STEPS = 5; // name, brain, profiles (optional), extra keys, ready
 /** Shown once, on a brand-new installation: a name, where the thinking happens (this PC or a cloud model with the
@@ -160,14 +161,24 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
                 ) : (
                   <>
                     <p className="small bad">{s.ollama?.reachable ? t.ollamaNoModel : t.ollamaOff}</p>
-                    <pre className="cmd">ollama pull {localModel}</pre>
-                    <div className="row-actions">
-                      {!s.ollama?.reachable && <GetOllama t={t} />}
-                      <button type="button" className="btn ghost" disabled={busy} onClick={() => void refresh(true)}>
-                        {t.checkAgain}
-                      </button>
-                    </div>
-                    <p className="muted small">{t.ollamaWatching}</p>
+                    {s.ollama?.reachable ? (
+                      <>
+                        <PullModel token={token} t={t} onDone={() => void refresh(true)} />
+                        <p className="muted small">{t.orTerminal}</p>
+                        <pre className="cmd">ollama pull {localModel}</pre>
+                      </>
+                    ) : (
+                      <>
+                        <pre className="cmd">ollama pull {localModel}</pre>
+                        <div className="row-actions">
+                          <GetOllama t={t} />
+                          <button type="button" className="btn ghost" disabled={busy} onClick={() => void refresh(true)}>
+                            {t.checkAgain}
+                          </button>
+                        </div>
+                        <p className="muted small">{t.ollamaWatching}</p>
+                      </>
+                    )}
                   </>
                 )}
               </>

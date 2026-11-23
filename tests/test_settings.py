@@ -72,7 +72,7 @@ class App(unittest.TestCase):
         self.assertEqual(s["search_sources"][-1], "Wikipedia")
         self.assertNotIn("Tavily", s["search_sources"])
         self.assertNotIn("ollama", s)  # the look at the local model server happens only when asked (?probe=1)
-        self.assertEqual(self.call("GET", "/models")[1], {"models": ["qwen3:8b"], "error": None})
+        self.assertEqual(self.call("GET", "/models")[1], {"models": ["qwen3:4b-instruct"], "error": None})
 
     def test_a_key_goes_into_the_vault_and_never_comes_back(self):
         code, body, raw = self.call("POST", "/key", {"name": "GROQ_API_KEY", "value": "  " + GROQ + "\n"})

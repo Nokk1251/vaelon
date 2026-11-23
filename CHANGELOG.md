@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+### Added
+- **Download the model from the app**: when Ollama runs but the local model is missing, the first-run setup and
+  Settings have a **Download the model** button with a progress bar - no terminal needed. Vaelon asks the
+  user's own Ollama to download the model it is set to use (never another one), one download at a time.
+### Fixed
+- Quick answers (bills, calendar, budget, bank import) show their lines as a real list; a calendar day
+  heading no longer glues onto the previous day's last event.
+
 ## 0.18.0 - 2026-11-18
 ### Changed
 - **A new interface.** A navigation rail with line icons (conversations, money, calendar, voice, examples, help,

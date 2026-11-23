@@ -525,7 +525,7 @@ def make_handler(service: Service, token: str, port: int):
                 if not proof.valid_nonce(n):
                     return self._send(400, {"error": "bad nonce"})
                 return self._send(200, {"proof": proof.proof(token, "vaelon-core", n)})
-            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models")):
+            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull")):
                 return self._static()
             if not self._authed():
                 return self._send(403 if self._foreign() else 401, {"error": "unauthorized"})
@@ -602,6 +602,10 @@ def make_handler(service: Service, token: str, port: int):
                 from . import settings
 
                 return self._send(200, settings.snapshot(service.cfg, probe="probe=1" in self.path))
+            if route == "/ollama/pull":  # how far the download of the local model is
+                from . import modelpull
+
+                return self._send(200, modelpull.status(service.cfg))
             if route == "/models":
                 from . import settings
 
@@ -735,6 +739,14 @@ def make_handler(service: Service, token: str, port: int):
                 from . import speed
 
                 return self._send(200, {"ok": True, "warming": speed.warm(service.cfg)})
+            if self.path == "/ollama/pull":  # download the local model through the user's own Ollama (no terminal)
+                from . import modelpull
+
+                origin = self.headers.get("Origin", "")
+                if origin and not origin.startswith(LOCAL_ORIGINS):
+                    return self._send(403, {"error": "only the app itself may start a download"})
+                got = modelpull.start(service.cfg)
+                return self._send(200, {"ok": not got.get("error") or got.get("running"), **got})
             if self.path in ("/key", "/settings"):
                 from . import settings
 
