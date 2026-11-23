@@ -1,8 +1,25 @@
 # VAELON
 
-Private, open-source (GPL-3.0-or-later) AI agent for your computer, phone and inbox - by text, voice or Telegram.
+<p align="center"><img src="brand/social-preview.png" alt="VAELON - your private AI, on your own computer" width="820"></p>
 
-Website: https://nokk1251.github.io/vaelon/
+**Your private AI assistant, on your own computer.** Talk to it or type: it answers, writes real documents, keeps your
+bills, invoices, budget and calendar in order - and asks before it does anything that matters. Free and open source.
+
+**[Download for Windows](https://github.com/Nokk1251/vaelon/releases/download/v0.18.0/Vaelon-Setup-0.18.0.exe)** ·
+**[Download for Mac](https://github.com/Nokk1251/vaelon/releases/download/v0.18.0/Vaelon-0.18.0.dmg)** (Apple silicon) ·
+[Website](https://nokk1251.github.io/vaelon/) · [Getting started](docs/GETTING_STARTED.md) · [All releases](https://github.com/Nokk1251/vaelon/releases)
+
+<p align="center"><img src="docs/images/screenshot.png" alt="The Vaelon window answering two questions: the bills still to pay, as a list, and this week's calendar" width="800"></p>
+
+## Why try it
+- **Private by default.** It thinks with a local model on your own computer (Ollama). A cloud model is your choice,
+  with your own key, and the app says plainly when text leaves the computer. No account, no telemetry.
+- **It asks before it acts.** Deleting, sending, running a program or writing where programs start by themselves waits
+  for your yes on an approval card that the AI cannot press for you - even when a web page or a file tries to talk it
+  into something.
+- **It does the work, not just the talking.** Word, PDF, Excel and PowerPoint files; bills with reminders, invoices, a
+  monthly budget, deals and bank-statement import for freelancers and small businesses; calendar, reminders, voice and
+  a small always-on-top companion window.
 
 **Vaelon - originally created by [Nokk_7](https://github.com/Nokk1251).** This credit must stay in every copy and modified version (see [NOTICE](NOTICE)).
 Combines the best ideas of OpenJarvis, Jarvis, Ultron and JARVIS projects (see [docs/ANALYSIS.md](docs/ANALYSIS.md)).
