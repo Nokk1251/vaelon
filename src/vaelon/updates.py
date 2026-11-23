@@ -168,14 +168,27 @@ def _fetch(repo: str, timeout: float) -> str:
 
 
 def _work(repo: str, timeout: float, done: threading.Event) -> None:
+    import requests
+
     out = {"enabled": True, "current": __version__, "latest": "", "newer": False, "url": ""}
-    try:
-        latest = _fetch(repo, timeout)
-        out.update(latest=latest, newer=newer(latest), url=page(latest) if newer(latest) else "")
-    except Failed as e:
-        out["error"] = str(e)
-    except Exception as e:
-        out["error"] = f"could not reach GitHub ({type(e).__name__})"
+    for attempt in (1, 2):
+        try:
+            latest = _fetch(repo, timeout)
+            out.update(latest=latest, newer=newer(latest), url=page(latest) if newer(latest) else "")
+        except Failed as e:
+            out["error"] = str(e)
+        except requests.exceptions.SSLError:
+            out["error"] = "no secure connection to GitHub - a firewall or a company network may block it"
+        except requests.exceptions.ConnectionError:  # also a connect timeout: a lost first packet is common
+            if attempt == 1:
+                time.sleep(1)
+                continue
+            out["error"] = "could not connect to GitHub - check the internet connection and try again"
+        except requests.exceptions.Timeout:
+            out["error"] = "GitHub did not answer in time - try again later"
+        except Exception as e:
+            out["error"] = f"could not reach GitHub ({type(e).__name__})"
+        break
     out["checked"] = time.time()
     with _lock:
         _last.update(t=out["checked"], result=out)
