@@ -82,7 +82,7 @@ export default function DealsTab(props: { token: string; t: Strings; onNote: (s:
           <button type="button" className="btn ghost" disabled={busy || !d.value} title={d.value ? t.dealInvoiceHint : t.dealNoValue}
             onClick={() => void act({ action: "invoice", id: d.id }, t.invMade)}>{t.dealInvoice}</button>
         )}
-        {d.invoice && <span className="muted small mono">№ {d.invoice}</span>}
+        {d.invoice && <span className="muted small mono">no. {d.invoice}</span>}
       </div>
       {open === d.id && (
         <div className="dealmore">

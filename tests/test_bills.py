@@ -309,7 +309,7 @@ class Tools(unittest.TestCase):
                       self.run_tool("invoice_create", {"client": "Acme", "items": "Design | 1 | 500"}))
         self.assertIn("saved business details", self.run_tool("business_profile", {"name": "Test Studio Ltd", "vat_rate": "20"}))
         out = self.run_tool("invoice_create", {"client": "Acme Ltd", "items": "Design | 1 | 500\nHosting 12 x 10"})
-        self.assertTrue(out.startswith("invoice № 0000000001 for Acme Ltd: 744.00 EUR (net 620.00 EUR, VAT 20 %)"), out)
+        self.assertTrue(out.startswith("invoice no. 0000000001 for Acme Ltd: 744.00 EUR (net 620.00 EUR, VAT 20 %)"), out)
         pdf = created(out)
         from pypdf import PdfReader
 
@@ -317,7 +317,7 @@ class Tools(unittest.TestCase):
         self.assertIn("0000000001", text)
         self.assertIn("Test Studio Ltd", text)
         out2 = self.run_tool("invoice_create", {"client": "Клиент ООД", "items": "Консултация 2 x 150", "vat_rate": "0"}, lang="bg")
-        self.assertIn("№ 0000000002", out2)
+        self.assertIn("no. 0000000002", out2)
         text2 = PdfReader(created(out2)).pages[0].extract_text()
         self.assertIn("ФАКТУРА", text2)
         self.assertIn("чл. 113", text2)  # no VAT: the legal reason is printed
@@ -328,11 +328,11 @@ class Tools(unittest.TestCase):
         self.assertIn("ERROR", self.run_tool("invoice_paid", {"invoice": "2"}))
         self.assertIn("Nobody owes you", self.run_tool("invoices_list", {}))
         out3 = self.run_tool("invoice_create", {"client": "Next Ltd", "items": "Thing 10"})
-        self.assertIn("№ 0000000003", out3)  # a void number is never reused
+        self.assertIn("no. 0000000003", out3)  # a void number is never reused
         with self.assertRaises(ValueError):
             B.set_profile(next="2")  # numbers already used
         B.set_profile(next="100")
-        self.assertIn("№ 0000000100", self.run_tool("invoice_create", {"client": "Later Ltd", "items": "Thing 10"}))
+        self.assertIn("no. 0000000100", self.run_tool("invoice_create", {"client": "Later Ltd", "items": "Thing 10"}))
 
     def test_summary_and_export(self):
         b = B.add_bill("EVN", 6000, "EUR", date.today())
