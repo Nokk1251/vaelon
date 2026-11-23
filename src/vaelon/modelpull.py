@@ -1,8 +1,8 @@
 """Download the local model from inside the app: Vaelon asks the user's own Ollama to pull it (Ollama's /api/pull) and
 reports the progress, so nobody has to open a terminal.
 
-- The model is always Vaelon's own choice (the configured local model, else the "local" preset). A request can never
-  name another model, so nothing can make Vaelon download something else or something huge.
+- The model is the configured local model (else the "local" preset's), or one the user picked from Vaelon's curated
+  list (localmodels.NAMES) - a request can name no other, so nothing can make this download something unexpected.
 - One download at a time; asking again while it runs just reports the running one.
 - Nothing here touches the internet itself: Ollama, on this computer (or the Ollama address in the settings), does the
   downloading from its own library.
@@ -24,30 +24,41 @@ _state: dict = {"running": False, "model": "", "status": "", "completed": 0, "to
                 "started": 0.0}
 
 
-def _target(cfg) -> tuple[str, str]:
-    """(Ollama address, model name) - both from Vaelon's settings, never from a request."""
+def _target(cfg, choice: str | None = None) -> tuple[str, str]:
+    """(Ollama address, model name). The model is Vaelon's own setting, or - when the user picks one in the app - a
+    model from the curated list (localmodels.CATALOG). A request can never name anything else."""
+    from .localmodels import NAMES
     from .providers import PRESETS
 
     base = cfg.base_url if cfg.provider == "ollama" and cfg.base_url else "http://localhost:11434"
     model = cfg.model if cfg.provider == "ollama" and cfg.model else PRESETS["local"]["model"]
+    if choice and choice in NAMES:
+        model = choice
     return base.rstrip("/"), model
 
 
-def status(cfg=None) -> dict:
-    """The download's state. With `cfg`: an earlier, finished download of ANOTHER model is not reported as this one."""
+def status(cfg=None, choice: str | None = None) -> dict:
+    """The download's state. With `cfg`: an earlier, finished download of ANOTHER model is not reported as this one
+    (the one Vaelon is set to use, or `choice` from the curated list)."""
     with _lock:
         s = dict(_state)
-    if cfg is not None and not s["running"] and s["model"] != _target(cfg)[1]:
-        s.update(model=_target(cfg)[1], status="", completed=0, total=0, error="", done=False)
+    if cfg is not None and not s["running"] and s["model"] != _target(cfg, choice)[1]:
+        s.update(model=_target(cfg, choice)[1], status="", completed=0, total=0, error="", done=False)
     s["percent"] = round(100 * s["completed"] / s["total"], 1) if s["total"] else 0.0
     return s
 
 
-def start(cfg) -> dict:
-    """Begin the download in the background (or report the one that is running)."""
-    base, model = _target(cfg)
+def start(cfg, choice: str | None = None) -> dict:
+    """Begin the download in the background (or report the one that is running). `choice` must be a model from the
+    curated list; anything else is refused before a request is made."""
+    from .localmodels import NAMES
+
+    if choice and choice not in NAMES:
+        return {**status(cfg), "running": False, "done": False, "error": "that model is not in Vaelon's list"}
+    base, model = _target(cfg, choice)
     if not NAME_RX.match(model):
-        return {**status(cfg), "running": False, "done": False, "error": "the configured local model name is not valid"}
+        return {**status(cfg, choice), "running": False, "done": False,
+                "error": "the configured local model name is not valid"}
     with _lock:  # status() takes the same lock: never call it while holding it
         already = _state["running"]
         if not already:
@@ -59,7 +70,7 @@ def start(cfg) -> dict:
         except RuntimeError:  # could not start a thread: never leave "running" switched on
             with _lock:
                 _state.update(running=False, error="could not start the download")
-    return status(cfg)
+    return status(cfg, choice)
 
 
 def _pull(base: str, model: str) -> None:

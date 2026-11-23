@@ -405,6 +405,13 @@ pre.cmd { font: 12.5px/1.6 var(--mono); color: var(--accent-2); background: var(
 a.btn { text-decoration: none; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0; }
 .pull { margin: 8px 0; }
+.picker { margin: 8px 0; }
+.picker-list { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 8px; }
+.picker-row { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-2); }
+.picker-row.on { border-color: var(--accent); }
+.picker-row p { margin: 4px 0; }
+.picker-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pill-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-2); color: var(--text-2); }
 .pull-bar { height: 8px; border-radius: 999px; overflow: hidden; background: var(--surface-3); border: 1px solid var(--border); }
 .pull-bar > i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
 .keyrow { padding: 14px 0; border-bottom: 1px solid var(--border); }

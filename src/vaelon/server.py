@@ -39,7 +39,7 @@ import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote
+from urllib.parse import parse_qs, unquote, urlparse
 
 from . import config
 from .agent import Agent
@@ -525,7 +525,7 @@ def make_handler(service: Service, token: str, port: int):
                 if not proof.valid_nonce(n):
                     return self._send(400, {"error": "bad nonce"})
                 return self._send(200, {"proof": proof.proof(token, "vaelon-core", n)})
-            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull")):
+            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local")):
                 return self._static()
             if not self._authed():
                 return self._send(403 if self._foreign() else 401, {"error": "unauthorized"})
@@ -602,10 +602,26 @@ def make_handler(service: Service, token: str, port: int):
                 from . import settings
 
                 return self._send(200, settings.snapshot(service.cfg, probe="probe=1" in self.path))
-            if route == "/ollama/pull":  # how far the download of the local model is
+            if route == "/ollama/pull":  # how far the download of the local model is (?model= a model from the list)
                 from . import modelpull
 
-                return self._send(200, modelpull.status(service.cfg))
+                choice = parse_qs(self.path.partition("?")[2]).get("model", [""])[0] or None
+                return self._send(200, modelpull.status(service.cfg, choice))
+            if route == "/models/local":  # the curated local models, this computer, and what fits it (never leaves it)
+                from . import localmodels, settings
+
+                seen = settings.ollama(service.cfg)
+                in_use = service.cfg.model if service.cfg.provider == "ollama" else ""
+                m = localmodels.machine()
+                have = {n.removesuffix(":latest") for n in seen["models"]}
+                host = (urlparse(service.cfg.base_url or "").hostname or "localhost").lower()
+                return self._send(200, {"machine": m, "ollama": seen, "overhead_gb": localmodels.OVERHEAD_GB,
+                                        "in_use": in_use,
+                                        # the model in use (any name, also one outside the list) is downloaded
+                                        "in_use_installed": bool(in_use) and in_use.removesuffix(":latest") in have,
+                                        # Ollama on another computer: the advice below is for THIS one
+                                        "remote": host not in ("localhost", "127.0.0.1", "::1"),
+                                        "models": localmodels.assess(m, seen["models"], in_use)})
             if route == "/models":
                 from . import settings
 
@@ -745,7 +761,8 @@ def make_handler(service: Service, token: str, port: int):
                 origin = self.headers.get("Origin", "")
                 if origin and not origin.startswith(LOCAL_ORIGINS):
                     return self._send(403, {"error": "only the app itself may start a download"})
-                got = modelpull.start(service.cfg)
+                choice = data.get("model") if isinstance(data.get("model"), str) else None
+                got = modelpull.start(service.cfg, choice)
                 return self._send(200, {"ok": not got.get("error") or got.get("running"), **got})
             if self.path in ("/key", "/settings"):
                 from . import settings

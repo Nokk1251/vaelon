@@ -163,7 +163,7 @@ def snapshot(cfg, probe: bool = False) -> dict:
     approved = mcp.servers()
     out = {
         "version": __version__, "first_run": not cfg.setup_done, "address_as": cfg.address_as,
-        "preset": preset_of(cfg), "model": cfg.model, "local": cfg.is_local,
+        "preset": preset_of(cfg), "model": cfg.model, "local": cfg.is_local, "ollama_used": cfg.provider == "ollama",
         "presets": [{"name": n, "model": p["model"], "note": p["free"], "url": p["url"], "key": p["api_key_env"],
                      "key_set": have.get(p["api_key_env"], True), "cloud": n != "local"}
                     for n, p in providers.PRESETS.items()],

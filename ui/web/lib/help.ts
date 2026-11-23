@@ -17,7 +17,7 @@ export const HELP: HelpSection[] = [
 
 **Starting Vaelon**: Windows - Start menu > Vaelon. Mac - Applications > Vaelon (or Spotlight). The first time on a Mac, macOS asks you to allow it: System Settings > Privacy & Security > **Open Anyway**.
 
-**A model is needed** for conversations, files and research: install the free Ollama app (Settings has a **Get Ollama** button), then press **Download the model** there, or add a cloud key in Settings. See *Where the thinking happens*.`,
+**A model is needed** for conversations, files and research: install the free Ollama app (Settings has a **Get Ollama** button), then pick a model there - the list says what each one is good for, how much memory it needs and whether it fits this computer - and press **Download the model**, or add a cloud key in Settings. See *Where the thinking happens*.`,
   },
   {
     id: "profiles",
