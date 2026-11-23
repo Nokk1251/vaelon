@@ -219,8 +219,9 @@ class Api(unittest.TestCase):
         self.assertEqual(self.call("POST", "/company", {"action": "sign_in", "user": mia, "pin": "0000"})[0], 403)
         code, r = self.call("POST", "/company", {"action": "sign_in", "user": mia, "pin": "5555"})
         self.assertEqual((code, r["state"]["workspace"]["name"]), (200, "Acme Ltd"))
-        for path in ("/chats", "/calendar", "/settings", "/notices"):
+        for path in ("/chats", "/calendar", "/settings", "/notices", "/models/local", "/ollama/pull"):
             self.assertEqual(self.call("GET", path)[0], 403, path)
+        self.assertEqual(self.call("POST", "/ollama/pull", {"model": "gemma3:4b"})[0], 403)  # the owner's choice only
         self.assertEqual(self.call("GET", "/catalog")[1]["memory"]["recent"], [])
         code, r = self.call("POST", "/budget", {"action": "add", "kind": "expense", "amount": "12", "note": "Lidl"})
         self.assertEqual(code, 200)

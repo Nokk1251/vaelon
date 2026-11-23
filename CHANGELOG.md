@@ -4,7 +4,11 @@
 ### Added
 - **Download the model from the app**: when Ollama runs but the local model is missing, the first-run setup and
   Settings have a **Download the model** button with a progress bar - no terminal needed. Vaelon asks the
-  user's own Ollama to download the model it is set to use (never another one), one download at a time.
+  user's own Ollama to download the model it is set to use, or one from Vaelon's list, one download at a time.
+- **Choose the local model**: Settings and the first-run setup list a few models (light, balanced, with pictures,
+  stronger, most capable) with what each is good for, its size and memory need, whether it fits this computer and
+  how fast it will feel - Vaelon reads the memory, processor and graphics of the computer (never sent anywhere)
+  and recommends one. Download and switch in place; only models from that list can be downloaded.
 ### Fixed
 - Quick answers (bills, calendar, budget, bank import) show their lines as a real list; a calendar day
   heading no longer glues onto the previous day's last event.

@@ -59,7 +59,7 @@ export type KeyRow = { name: string; what: string; url: string; provider: string
 export type ModelPreset = { name: string; model: string; note: string; url: string; key: string; key_set: boolean;
   cloud: boolean };
 export type Settings = {
-  version: string; first_run: boolean; address_as: string; preset: string | null; model: string; local: boolean;
+  version: string; first_run: boolean; address_as: string; preset: string | null; model: string; local: boolean; ollama_used?: boolean;
   presets: ModelPreset[]; keys: KeyRow[]; tts_engine: string; stt_engine: string; auto_learn: boolean;
   elevenlabs_monthly_chars: number; output_dir: string; stock_sources: string[]; search_sources: string[];
   mcp: { name: string; enabled: boolean; tools: number; trusted: boolean }[];
@@ -115,6 +115,15 @@ export type ChatsAnswer = { ok: boolean; error?: string | null; chats: ChatRow[]
 export type PullStatus = { ok?: boolean; running: boolean; model: string; status: string; completed: number; total: number;
   percent: number; error: string; done: boolean };
 
+export type Graphics = { name: string; vram_gb: number; kind: "nvidia" | "amd" | "apple" | "integrated" | "other" };
+export type Machine = { processor: string; cores: number; graphics: Graphics[]; apple_silicon: boolean; memory_gb: number;
+  free_gb: number };
+export type LocalModel = { name: string; size_gb: number; need_gb: number; vision: boolean; good_for: string;
+  fit: "ok" | "tight" | "too_big"; speed: "fast" | "usable" | "slow" | "very_slow"; installed: boolean; in_use: boolean;
+  recommended: boolean };
+export type LocalModels = { machine: Machine; ollama: { reachable: boolean; models: string[] }; overhead_gb: number;
+  in_use: string; in_use_installed: boolean; remote: boolean; models: LocalModel[] };
+
 export class VaelonApi {
   constructor(private token: string) {}
 
@@ -141,13 +150,19 @@ export class VaelonApi {
     return this.req("GET", `/settings${probe ? "?probe=1" : ""}`);
   }
 
-  /** Ask the user's Ollama to download the local model Vaelon is set to use (never another one). */
-  pullModel(): Promise<PullStatus & { ok: boolean }> {
-    return this.ask("/ollama/pull", {});
+  /** Ask the user's Ollama to download the local model Vaelon is set to use, or `model` from Vaelon's curated list
+   *  (the core refuses any other name). */
+  pullModel(model?: string): Promise<PullStatus & { ok: boolean }> {
+    return this.ask("/ollama/pull", model ? { model } : {});
   }
 
-  pullStatus(): Promise<PullStatus> {
-    return this.req("GET", "/ollama/pull");
+  pullStatus(model?: string): Promise<PullStatus> {
+    return this.req("GET", `/ollama/pull${model ? `?model=${encodeURIComponent(model)}` : ""}`);
+  }
+
+  /** The curated local models, what this computer has, and how well each model fits it (all read locally). */
+  localModels(): Promise<LocalModels> {
+    return this.req("GET", "/models/local");
   }
 
   saveSettings(changes: SettingsChange): Promise<{ ok: boolean; error?: string | null; settings: Settings }> {

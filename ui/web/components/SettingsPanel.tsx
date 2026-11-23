@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { VaelonApi, type KeyRow, type ModelPreset, type Settings, type SettingsChange } from "@/lib/vaelonApi";
 import { STRINGS, type Lang, type Strings } from "@/lib/i18n";
 import GetOllama from "./GetOllama";
-import PullModel from "./PullModel";
+import ModelPicker from "./ModelPicker";
 import ProfilePicker from "./ProfilePicker";
 import { readPrefs, writePrefs, type Prefs } from "@/lib/prefs";
 
@@ -261,7 +261,7 @@ export default function SettingsPanel(props: { token: string; lang: Lang; onClos
               <h3>{t.setBrain} <HelpLink section="models" t={t} /></h3>
               <p className="muted">{s.local ? t.brainLocal : t.brainCloud}</p>
               <BrainCards presets={s.presets} current={s.preset} t={t} busy={busy} onPick={pick} />
-              {s.preset === "local" && s.ollama && !s.ollama.reachable && (
+              {s.ollama_used && s.ollama && !s.ollama.reachable && (
                 <>
                   <p className="small bad">{t.ollamaOff}</p>
                   <div className="row-actions">
@@ -269,13 +269,11 @@ export default function SettingsPanel(props: { token: string; lang: Lang; onClos
                   </div>
                 </>
               )}
-              {s.preset === "local" && s.ollama?.reachable && !s.ollama.models.includes(s.model) && (
+              {s.ollama_used && s.ollama?.reachable && (
                 <>
-                  <p className="small bad">{t.ollamaNoModel}</p>
-                  <PullModel token={token} t={t} onDone={() => void new VaelonApi(token).settings(true).then(take).catch(() => undefined)} />
-                  <p className="muted small">
-                    {t.orTerminal} <code>ollama pull {s.model}</code>
-                  </p>
+                  {!s.ollama.models.includes(s.model) && <p className="small bad">{t.ollamaNoModel}</p>}
+                  <ModelPicker token={token} t={t} isLocal current={s.model}
+                    onChanged={() => void new VaelonApi(token).settings(true).then(take).catch(() => undefined)} />
                 </>
               )}
               <div className="keyform">

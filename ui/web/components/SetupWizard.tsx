@@ -6,7 +6,7 @@ import { STRINGS, type Lang } from "@/lib/i18n";
 import { KeyField } from "./SettingsPanel";
 import ProfilePicker from "./ProfilePicker";
 import GetOllama from "./GetOllama";
-import PullModel from "./PullModel";
+import ModelPicker from "./ModelPicker";
 
 const STEPS = 5; // name, brain, profiles (optional), extra keys, ready
 /** Shown once, on a brand-new installation: a name, where the thinking happens (this PC or a cloud model with the
@@ -43,9 +43,11 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
     void refresh(true);
   }, [refresh]);
 
+  // the model that will really be used (and downloaded): the chosen local one, else the local preset's
+  const localModel = s.ollama_used && s.model ? s.model : s.presets.find((p) => p.name === "local")?.model ?? "";
+  const ollamaReady = !!s.ollama?.reachable && s.ollama.models.includes(localModel);
   // while the user installs Ollama or downloads the model, look again by itself every 5 s (only on this step)
-  const localName = s.presets.find((p) => p.name === "local")?.model ?? "";
-  const waitingForOllama = step === 1 && where === "local" && !(s.ollama?.reachable && s.ollama.models.includes(localName));
+  const waitingForOllama = step === 1 && where === "local" && !ollamaReady;
   useEffect(() => {
     if (!waitingForOllama) return;
     const id = window.setInterval(() => void refresh(true), 5000);
@@ -75,7 +77,9 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
       }
       if (step === 1) {
         const want = where === "local" ? "local" : cloud;
-        if (want !== s.preset) {
+        // any Ollama counts as local: switching again would put back the preset's model (and address) and lose the
+        // model the user just picked
+        if (where === "local" ? !s.ollama_used : want !== s.preset) {
           gen.current++;
           const r = await api.saveSettings({ provider: want });
           if (!r.ok) throw new Error(r.error || t.settingsFail);
@@ -111,8 +115,6 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
 
   const chosen = s.presets.find((p) => p.name === cloud);
   const chosenKey = s.keys.find((k) => k.name === chosen?.key);
-  const localModel = s.presets.find((p) => p.name === "local")?.model ?? "";
-  const ollamaReady = !!s.ollama?.reachable && s.ollama.models.includes(localModel);
   const blocked = step === 1 && where === "cloud" && !chosen?.key_set;
 
   return (
@@ -156,29 +158,29 @@ export default function SetupWizard(props: { token: string; lang: Lang; first: S
             </div>
             {where === "local" && (
               <>
-                {ollamaReady ? (
-                  <p className="small good">{t.ollamaReady} ({localModel})</p>
+                {s.ollama?.reachable ? (
+                  <>
+                    {ollamaReady ? (
+                      <p className="small good">{t.ollamaReady} ({localModel})</p>
+                    ) : (
+                      <p className="small bad">{t.ollamaNoModel}</p>
+                    )}
+                    <ModelPicker token={token} t={t} isLocal={!!s.ollama_used} current={s.model} onChanged={(fresh) => {
+                      gen.current++;
+                      setS((old) => ({ ...fresh, ollama: old.ollama }));
+                      void refresh(true);
+                    }} />
+                  </>
                 ) : (
                   <>
-                    <p className="small bad">{s.ollama?.reachable ? t.ollamaNoModel : t.ollamaOff}</p>
-                    {s.ollama?.reachable ? (
-                      <>
-                        <PullModel token={token} t={t} onDone={() => void refresh(true)} />
-                        <p className="muted small">{t.orTerminal}</p>
-                        <pre className="cmd">ollama pull {localModel}</pre>
-                      </>
-                    ) : (
-                      <>
-                        <pre className="cmd">ollama pull {localModel}</pre>
-                        <div className="row-actions">
-                          <GetOllama t={t} />
-                          <button type="button" className="btn ghost" disabled={busy} onClick={() => void refresh(true)}>
-                            {t.checkAgain}
-                          </button>
-                        </div>
-                        <p className="muted small">{t.ollamaWatching}</p>
-                      </>
-                    )}
+                    <p className="small bad">{t.ollamaOff}</p>
+                    <div className="row-actions">
+                      <GetOllama t={t} />
+                      <button type="button" className="btn ghost" disabled={busy} onClick={() => void refresh(true)}>
+                        {t.checkAgain}
+                      </button>
+                    </div>
+                    <p className="muted small">{t.ollamaWatching}</p>
                   </>
                 )}
               </>

@@ -27,8 +27,10 @@ A short setup opens. Every step can be skipped and changed later in Settings; on
 
 - **On this computer** - private, nothing leaves it; the speed depends on the computer (an Apple-silicon Mac is fast).
   1. Click **Get Ollama** (it opens https://ollama.com/download), install it and start it.
-  2. Back in the setup, press **Download the model** (about 2.5 GB; a bar shows the progress). Prefer a terminal?
-     `ollama pull qwen3:4b-instruct` does the same.
+  2. Back in the setup, Vaelon looks at this computer (memory, processor, graphics) and lists a few models: what each
+     is good for, its download size, how much memory it needs, whether it fits and how fast it will feel. One is marked
+     **Recommended for this computer**. Press **Download the model** on it (a bar shows the progress); a model you
+     already have only needs **Use this model**. Prefer a terminal? `ollama pull <model>` does the same.
   3. The setup says by itself when the model is ready.
 - **In the cloud** - faster, but your text goes to that company. Get a free key (Groq: https://console.groq.com/keys,
   Gemini: https://aistudio.google.com/apikey) and paste it into the key box of the setup or of Settings. Never paste a
