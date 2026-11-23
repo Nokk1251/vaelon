@@ -59,9 +59,10 @@ class StandIn(unittest.TestCase):
 
             def get(self, url, **kw):
                 test.calls.append((url, kw))
-                if isinstance(test.answer, Exception):
-                    raise test.answer
-                return test.answer
+                a = test.answer.pop(0) if isinstance(test.answer, list) else test.answer
+                if isinstance(a, Exception):
+                    raise a
+                return a
 
             def close(self):
                 pass
@@ -126,6 +127,28 @@ class Check(StandIn):
             self.assertEqual(self.fresh()["error"], said)
         self.answer = ConnectionError("secret detail from the network stack")
         self.assertEqual(self.fresh()["error"], "could not reach GitHub (ConnectionError)")
+
+    def test_a_lost_connection_is_tried_once_more(self):  # seen on a real network: the first connect timed out
+        import requests
+
+        self.answer = [requests.exceptions.ConnectTimeout("first packet lost"), Answer({"tag_name": "v9.1.0"})]
+        c = self.fresh()
+        self.assertEqual((c["latest"], c.get("error"), len(self.calls)), ("9.1.0", None, 2))
+
+    def test_network_problems_are_said_plainly(self):
+        import requests
+
+        e = requests.exceptions
+        cases = {"could not connect to GitHub - check the internet connection and try again":
+                 [e.ConnectTimeout("x"), e.ConnectionError("y")],
+                 "no secure connection to GitHub - a firewall or a company network may block it": [e.SSLError("z")],
+                 "GitHub did not answer in time - try again later": [e.ReadTimeout("t")]}
+        for said, answers in cases.items():
+            self.calls.clear()
+            tries = len(answers)  # only a lost connection is tried twice
+            self.answer = list(answers)
+            self.assertEqual(self.fresh()["error"], said)
+            self.assertEqual(len(self.calls), tries)
 
     def test_at_most_once_a_day_and_check_now_at_most_once_a_minute(self):
         updates.check()
