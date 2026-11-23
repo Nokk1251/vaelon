@@ -257,7 +257,7 @@ def invoice_create(ctx, client, items, client_address="", client_company_id="", 
                                   "vat_id": client_vat_id}, parsed, vat_rate or None, days, currency, notes,
                             "en" if str(language).lower().startswith("en") else "bg" if str(language).lower().startswith("bg") else "")
     net, vat, total = B.invoice_totals(inv)
-    return (f"invoice № {inv['number']} for {inv['client']['name']}: {B.money(total, inv['currency'])} "
+    return (f"invoice no. {inv['number']} for {inv['client']['name']}: {B.money(total, inv['currency'])} "
             f"(net {B.money(net, inv['currency'])}, VAT {inv['vat_rate']} %), due {inv['due']}. {msg}")
 
 
@@ -301,7 +301,7 @@ def invoice_void(ctx, invoice):
     inv = B.update_invoice(inv["id"], status="void")
     _undo(f"void invoice {inv['number']}", before)
     msg = _save(ctx, f"Invoice {inv['number']} VOID", ".pdf", lambda p: B.invoice_pdf(inv, p))
-    return f"invoice № {inv['number']} is void. {msg}"
+    return f"invoice no. {inv['number']} is void. {msg}"
 
 
 # ---------------------------------------------------------------- the budget (vaelon/budget.py)
@@ -494,10 +494,10 @@ def deal_invoice(ctx, deal):
     if d["stage"] != "won":
         return "ERROR: only a won deal is invoiced - mark it won first"
     if d.get("invoice"):
-        return f"ERROR: it already has invoice № {d['invoice']}"
+        return f"ERROR: it already has invoice no. {d['invoice']}"
     inv, msg = make_invoice(ctx, {"name": d["client"]}, _dl.invoice_items(d), None, 14, d["currency"])
     _dl.update(d["id"], invoice=inv["number"], note=f"invoice {inv['number']}")
-    return f"invoice № {inv['number']} for {d['client']}: {B.money(B.invoice_totals(inv)[2], inv['currency'])}. {msg}"
+    return f"invoice no. {inv['number']} for {d['client']}: {B.money(B.invoice_totals(inv)[2], inv['currency'])}. {msg}"
 
 
 @tool("deal_delete", "Remove a deal entered by mistake (a lost deal should be marked lost instead)", {"deal": "id"},

@@ -267,7 +267,7 @@ def summary_text(s: dict, bg: bool, applied: bool) -> str:
         if s["bills"]:
             lines.append("• bills paid: " + ", ".join(f"{b['vendor']} {B.money(b['amount'], b['currency'])}" for b in s["bills"]))
         if s["invoices"]:
-            lines.append("• invoices paid: " + ", ".join(f"№ {i['number']} {i['client']}" for i in s["invoices"]))
+            lines.append("• invoices paid: " + ", ".join(f"no. {i['number']} {i['client']}" for i in s["invoices"]))
         if s["skipped"]:
             lines.append(f"• already imported (skipped): {s['skipped']}")
         if s.get("other"):

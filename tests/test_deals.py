@@ -160,7 +160,7 @@ class Tools(unittest.TestCase):
         B.set_profile(name="Test Studio Ltd", vat_rate="20")
         out = self.run_tool("deal_won", {"deal": "acme", "invoice": "yes"})
         self.assertIn("won:", out)
-        self.assertIn("invoice № 0000000001 for Acme Ltd: 6,000.00 EUR", out)
+        self.assertIn("invoice no. 0000000001 for Acme Ltd: 6,000.00 EUR", out)
         pdf = re.search(r"created (.+?\.pdf)", out).group(1)
         self.assertTrue(Path(pdf).is_file())
         self.assertEqual(D.match("acme")[0]["invoice"], "0000000001")

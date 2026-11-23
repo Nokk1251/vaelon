@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+### Changed
+- English answers and the Deals tab write "no." before a bill or invoice number instead of the numero sign
+  (Bulgarian answers and the Bulgarian invoice keep it).
+- The README shows a short demo of the app instead of a still picture.
+
 ## 0.19.0 - 2026-11-23
 ### Added
 - **Update check (off by default)**: Settings > Updates can check once a day whether a newer Vaelon is
@@ -15,6 +21,7 @@
   how fast it will feel - Vaelon reads the memory, processor and graphics of the computer (never sent anywhere)
   and recommends one. Download and switch in place; only models from that list can be downloaded.
 ### Fixed
+- The update check tries a lost connection once more and says network problems in plain words.
 - Running from source (`vaelon app`) showed the interface of the last exe build instead of the fresh
   `npm run build`: the checkout's own build now goes first; the installed app serves only its packaged copy.
 - Quick answers (bills, calendar, budget, bank import) show their lines as a real list; a calendar day

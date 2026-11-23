@@ -9,7 +9,7 @@ bills, invoices, budget and calendar in order - and asks before it does anything
 **[Download for Mac](https://github.com/Nokk1251/vaelon/releases/download/v0.18.0/Vaelon-0.18.0.dmg)** (Apple silicon) ·
 [Website](https://nokk1251.github.io/vaelon/) · [Getting started](docs/GETTING_STARTED.md) · [All releases](https://github.com/Nokk1251/vaelon/releases)
 
-<p align="center"><img src="docs/images/screenshot.png" alt="The Vaelon window answering two questions: the bills still to pay, as a list, and this week's calendar" width="800"></p>
+<p align="center"><img src="docs/images/vaelon-demo.gif" alt="Vaelon answering three typed questions on made-up demo data, each in under a second and without the AI model: the bills still to pay, the budget this month, and this week's calendar" width="800"></p>
 
 ## Why try it
 - **Private by default.** It thinks with a local model on your own computer (Ollama). A cloud model is your choice,

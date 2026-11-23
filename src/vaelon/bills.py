@@ -500,7 +500,7 @@ def bill_line(b: dict, bg: bool, ids: bool = True, today: date | None = None) ->
     extra = f" ({cat})" if cat.lower() not in b["vendor"].lower() and b["category"] != "other" else ""
     rep = {"monthly": " ↻ месечно" if bg else " ↻ monthly", "quarterly": " ↻ на 3 месеца" if bg else " ↻ quarterly",
            "yearly": " ↻ годишно" if bg else " ↻ yearly"}.get(b.get("repeat", ""), "")
-    num = f", № {b['number']}" if b.get("number") else ""
+    num = f", {'№' if bg else 'no.'} {b['number']}" if b.get("number") else ""
     return (f"{b['vendor']}{extra}: {amount}" + (f" - {when}" if when else "") + num + rep
             + (f"  [id {b['id']}]" if ids else ""))
 
@@ -844,7 +844,7 @@ def invoice_line(i: dict, bg: bool, ids: bool = True, today: date | None = None)
         state = f"ПРОСРОЧЕНА от {day_text(due, bg, today)}" if bg else f"OVERDUE since {day_text(due, bg, today)}"
     else:
         state = f"падеж {day_text(due, bg, today)}" if bg else f"due {day_text(due, bg, today)}"
-    return f"№ {i['number']} {i['client']['name']}: {total} - {state}" + (f"  [id {i['id']}]" if ids else "")
+    return f"{'№' if bg else 'no.'} {i['number']} {i['client']['name']}: {total} - {state}" + (f"  [id {i['id']}]" if ids else "")
 
 
 # ---------------------------------------------------------------- the invoice as a PDF
@@ -1067,7 +1067,7 @@ mark_paid = _co.guarded(mark_paid, "bills.write", "bill marked paid",
 mark_unpaid = _co.guarded(mark_unpaid, "bills.write", "bill marked unpaid", lambda r, a, k: r["vendor"] if r else "")
 set_profile = _co.guarded(set_profile, "profile.write", "business details changed", lambda r, a, k: ", ".join(sorted(k)))
 new_invoice = _co.guarded(new_invoice, "invoices.write", "invoice issued",
-                          lambda r, a, k: f"№ {r['number']} {r['client']['name']} {money(invoice_totals(r)[2], r['currency'])}")
+                          lambda r, a, k: f"no. {r['number']} {r['client']['name']} {money(invoice_totals(r)[2], r['currency'])}")
 update_invoice = _co.guarded(update_invoice, "invoices.write", "invoice changed",
-                             lambda r, a, k: f"№ {r['number']}: " + ", ".join(f"{x}={v}" for x, v in k.items() if x != "file") if r else "")
+                             lambda r, a, k: f"no. {r['number']}: " + ", ".join(f"{x}={v}" for x, v in k.items() if x != "file") if r else "")
 restore_all = _co.guarded(restore_all, "bills.write", "undo", lambda r, a, k: "bills / invoices")

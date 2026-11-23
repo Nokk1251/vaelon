@@ -204,7 +204,7 @@ def deal_line(d: dict, bg: bool, ids: bool = True, today: date | None = None) ->
     elif d["stage"] == "lost" and d.get("lost_reason"):
         extra = f" ({d['lost_reason']})"
     if d["stage"] == "won" and d.get("invoice"):
-        extra += f"; фактура № {d['invoice']}" if bg else f"; invoice № {d['invoice']}"
+        extra += f"; фактура № {d['invoice']}" if bg else f"; invoice no. {d['invoice']}"
     return f"{d['client']}{what}: {value} [{stage_label(d['stage'], bg)}]{extra}" + (f"  [id {d['id']}]" if ids else "")
 
 
