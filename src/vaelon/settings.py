@@ -168,7 +168,7 @@ def snapshot(cfg, probe: bool = False) -> dict:
                      "key_set": have.get(p["api_key_env"], True), "cloud": n != "local"}
                     for n, p in providers.PRESETS.items()],
         "keys": keys(), "tts_engine": cfg.tts_engine, "stt_engine": cfg.stt_engine, "auto_learn": cfg.auto_learn,
-        "elevenlabs_monthly_chars": cfg.elevenlabs_monthly_chars,
+        "elevenlabs_monthly_chars": cfg.elevenlabs_monthly_chars, "update_check": cfg.update_check,
         "output_dir": cfg.output_dir or str(Path.home() / "Documents" / "Vaelon"),
         "stock_sources": market_data.sources(), "search_sources": search.sources(),
         "comms": comms(cfg),
@@ -216,9 +216,9 @@ def apply(cfg, changes: dict) -> tuple[list[str], str | None]:
             if value not in STT:
                 return [], "unknown speech-to-text engine"
             todo.append((field, value))
-        elif field == "auto_learn":
+        elif field in ("auto_learn", "update_check"):
             if not isinstance(value, bool):
-                return [], "auto_learn is on or off"
+                return [], f"{field} is on or off"
             todo.append((field, value))
         elif field == "elevenlabs_monthly_chars":
             if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 1_000_000:

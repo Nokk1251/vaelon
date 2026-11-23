@@ -36,7 +36,9 @@ Combines the best ideas of OpenJarvis, Jarvis, Ultron and JARVIS projects (see [
 | Your data | `%USERPROFILE%\.vaelon` | `~/.vaelon` |
 | Uninstall | Settings > Apps > Vaelon > Uninstall | drag Vaelon from Applications to the Bin |
 
-Updating or uninstalling never removes your data folder or the files Vaelon made for you (`Documents\Vaelon`).
+To update, run the new installer over the old version. Updating or uninstalling never removes your data folder or the files Vaelon made for you (`Documents\Vaelon`).
+Settings > Updates can tell you when a new version is out (off by default; it asks GitHub only for the version
+number and never downloads anything by itself).
 Compare a download with `SHA256SUMS.txt` on the release page if you want to be sure it was not changed.
 
 **The first start** opens a short setup. The one choice that matters is **where Vaelon thinks**:

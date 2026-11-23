@@ -139,6 +139,8 @@ def cmd_config(a, cfg):
         if not hasattr(cfg, a.key) or a.value is None:
             raise SystemExit(f"usage: vaelon config KEY VALUE (known keys: {', '.join(sorted(cfg.__dict__))})")
         cur = getattr(cfg, a.key)
+        if isinstance(cur, bool) and a.value.strip().lower() not in ("true", "false"):
+            raise SystemExit(f"{a.key} is on or off: use true or false")
         try:
             setattr(cfg, a.key, json.loads(a.value) if not isinstance(cur, str) else a.value)
         except ValueError:

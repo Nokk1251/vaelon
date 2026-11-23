@@ -5,6 +5,7 @@ import { VaelonApi, type KeyRow, type ModelPreset, type Settings, type SettingsC
 import { STRINGS, type Lang, type Strings } from "@/lib/i18n";
 import GetOllama from "./GetOllama";
 import ModelPicker from "./ModelPicker";
+import UpdateCheck from "./UpdateCheck";
 import ProfilePicker from "./ProfilePicker";
 import { readPrefs, writePrefs, type Prefs } from "@/lib/prefs";
 
@@ -373,6 +374,10 @@ export default function SettingsPanel(props: { token: string; lang: Lang; onClos
                 <input type="checkbox" checked={s.auto_learn} disabled={busy} onChange={(e) => void change({ auto_learn: e.target.checked })} />
                 <span>{t.setLearnHint}</span>
               </label>
+
+              <h3>{t.setUpdates} <HelpLink section="updates" t={t} /></h3>
+              <UpdateCheck token={token} t={t} on={!!s.update_check} busy={busy}
+                onToggle={(on) => void change({ update_check: on })} />
 
               <h3>{t.setData}</h3>
               <div className="row">

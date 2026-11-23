@@ -62,6 +62,7 @@ export type Settings = {
   version: string; first_run: boolean; address_as: string; preset: string | null; model: string; local: boolean; ollama_used?: boolean;
   presets: ModelPreset[]; keys: KeyRow[]; tts_engine: string; stt_engine: string; auto_learn: boolean;
   elevenlabs_monthly_chars: number; output_dir: string; stock_sources: string[]; search_sources: string[];
+  update_check?: boolean;
   mcp: { name: string; enabled: boolean; tools: number; trusted: boolean }[];
   comms: { provider: string; smtp_host: string; smtp_port: number; imap_host: string; email_ready: boolean;
     phone_ready: boolean; contacts: number; providers: string[] };
@@ -72,7 +73,10 @@ export type Profile = { name: string; title: string; blurb: string; on: boolean 
 export type FeedbackAnswer = { ok: boolean; error?: string | null; path?: string; mailto?: string };
 export type SettingsChange = Partial<{ address_as: string; provider: string; model: string; tts_engine: string;
   stt_engine: string; auto_learn: boolean; elevenlabs_monthly_chars: number; setup_done: true; mail_provider: string;
-  smtp_host: string; smtp_port: number; imap_host: string; profiles: string[] }>;
+  smtp_host: string; smtp_port: number; imap_host: string; profiles: string[]; update_check: boolean }>;
+/** Is there a newer Vaelon? `off` = the daily check is off (only "Check now" asks GitHub). */
+export type UpdateInfo = { enabled: boolean; off?: boolean; current: string; latest: string; newer: boolean; url: string;
+  error?: string | null; checking?: boolean };
 
 export type CalEvent = { id: string; title: string; start: string; minutes: number; all_day: boolean; place: string;
   notes: string; repeat: string; remind: number | null };
@@ -158,6 +162,11 @@ export class VaelonApi {
 
   pullStatus(model?: string): Promise<PullStatus> {
     return this.req("GET", `/ollama/pull${model ? `?model=${encodeURIComponent(model)}` : ""}`);
+  }
+
+  /** now = the user pressed "Check now"; otherwise the core answers only when the daily check is on. */
+  updateCheck(now = false): Promise<UpdateInfo> {
+    return this.req("GET", now ? "/update?now=1" : "/update");
   }
 
   /** The curated local models, what this computer has, and how well each model fits it (all read locally). */

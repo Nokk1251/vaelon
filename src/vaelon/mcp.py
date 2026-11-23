@@ -274,7 +274,9 @@ class _Http:
 
     @classmethod
     def _stream(cls, r, want, timeout: float = CALL_TIMEOUT) -> dict:
-        watchdog = threading.Timer(timeout + 5, r.close)  # a read that hangs inside one chunk is cut too
+        from .tools.web import cutter
+
+        watchdog = threading.Timer(timeout + 5, cutter(r))  # a read that hangs inside one chunk is cut too
         watchdog.daemon = True
         watchdog.start()
         try:

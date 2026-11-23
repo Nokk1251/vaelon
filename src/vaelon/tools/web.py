@@ -62,7 +62,21 @@ def _get(url: str, stream=False):
     return r
 
 
-def _capped(r, cap: int, seconds: float = 45.0) -> bytes:
+def cutter(r):
+    """What stops a response that hangs inside one read. r.close() from another thread waits until the hanging read is
+    over (it needs the lock the reading thread holds); shutting the socket down (urllib3 >= 2.3) ends the read at once."""
+    def cut():
+        try:
+            r.raw.shutdown()
+        except Exception:  # no shutdown (older urllib3), already closed, or back in the pool
+            try:
+                r.close()
+            except Exception:
+                pass
+    return cut
+
+
+def _capped(r, cap: int, seconds: float = 45.0, grace: float = 5.0) -> bytes:
     """At most `cap` bytes (after decompression), and never longer than `seconds` in total (a server that drips one
     byte every few seconds, or an endless / compressed-bomb page, cannot hold a task)."""
     import time
@@ -70,7 +84,7 @@ def _capped(r, cap: int, seconds: float = 45.0) -> bytes:
     import threading
 
     end, buf = time.monotonic() + seconds, bytearray()
-    watchdog = threading.Timer(seconds + 5, r.close)  # a read that hangs inside one chunk is cut too
+    watchdog = threading.Timer(seconds + grace, cutter(r))  # a read that hangs inside one chunk is cut too
     watchdog.daemon = True
     watchdog.start()
     try:
@@ -154,7 +168,7 @@ def download_file(ctx, url, filename=""):
     r = _get(url, stream=True)
     import threading
 
-    watchdog = threading.Timer(610, r.close)  # never longer than about 10 minutes, even inside one slow read
+    watchdog = threading.Timer(610, cutter(r))  # never longer than about 10 minutes, even inside one slow read
     watchdog.daemon = True
     watchdog.start()
     size, end = 0, time.monotonic() + 600

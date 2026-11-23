@@ -142,7 +142,7 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
     body: `- **Approval cards**: anything that changes or sends something (deleting files, running commands, mail, calls) waits for your **Allow**. The model cannot approve for you.
 - **Outside content**: after Vaelon reads a web page, an email or a file from elsewhere, the task is marked and every action needs your approval, even ones you normally allow.
 - **Encrypted on this PC**: keys, memory, chats, contacts, calendar, money, company data (AES-256; the master key is sealed by Windows DPAPI or the macOS Keychain).
-- **What leaves the PC**: only what you chose. That is a cloud model, cloud voice, web searches, and mail or phone when you send. With the local model and local voice, nothing about you leaves the computer.
+- **What leaves the PC**: only what you chose. That is a cloud model, cloud voice, web searches, the update check if you turn it on, and mail or phone when you send. With the local model and local voice, nothing about you leaves the computer.
 - Vaelon's own source files carry an integrity signature (the installers themselves are not code-signed). From a source install, \`vaelon doctor\` checks the setup and \`vaelon integrity verify\` checks the code.
 - On a Mac, macOS may ask once after an update whether Vaelon may use its Keychain item: choose **Always Allow**. If you deny it, nothing is lost - Vaelon just cannot open its vault until you allow it.`,
   },
@@ -154,6 +154,15 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
 - **Self-learning** (Settings → Learning): after longer tasks Vaelon saves reusable skills and lessons. It never does this from tasks that read outside content.
 - *"Learn about electric cars"*: Vaelon researches a topic and keeps the facts (marked unverified).
 - \`vaelon memory wipe\` erases memory and all chats.`,
+  },
+  {
+    id: "updates",
+    title: "Updates",
+    body: `- **Off until you turn it on.** Settings → Updates → *Check once a day* (also across restarts). Or press **Check now** (at most once a minute).
+- The check asks GitHub, where Vaelon is published, for the newest version number. Nothing about you is sent. GitHub sees your IP address, as any website does.
+- Vaelon never downloads, installs or runs an update by itself. It shows the version and a link to the official download page.
+- To update: download the installer there and run it over your version. Your data, keys, chats and settings stay. Compare the file's SHA-256 with the one listed on that page.
+- From a source install: \`vaelon update\` checks once.`,
   },
   {
     id: "trouble",
