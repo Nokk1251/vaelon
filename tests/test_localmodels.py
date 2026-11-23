@@ -118,7 +118,17 @@ class Computer(unittest.TestCase):
         def broken(args, timeout=8):
             raise RuntimeError("unexpected")
         L._run = broken
+        sys.platform = "win32"  # an Apple silicon Mac answers without asking any program (see the next test)
         self.assertEqual(L._graphics(), [])
+
+    def test_an_apple_silicon_mac_needs_no_program_to_tell(self):
+        L._run = lambda args, timeout=8: self.fail("no program should be asked on Apple silicon")
+        real = L.platform.machine
+        sys.platform, L.platform.machine = "darwin", lambda: "arm64"
+        try:
+            self.assertEqual([g["kind"] for g in L._graphics()], ["apple"])
+        finally:
+            L.platform.machine = real
 
     def test_output_that_is_not_utf8_does_not_break_the_look(self):  # e.g. a console code page on Windows
         L._run = self.real[0]
