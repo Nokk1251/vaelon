@@ -31,21 +31,14 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with: { python-version: "${{ matrix.python }}" }
-      - run: pip install -e .
+      - run: pip install -e ".[system,search,docs,vision,live]" numpy
       - run: python scripts/check_secrets.py
-      - run: python -I tests/test_core.py
-      - run: python -I tests/test_runtime.py
-      - run: python -I tests/test_structured.py
-      - run: python -I tests/test_learning.py
-      - run: python -I tests/test_power.py
-      - run: python -I tests/test_security.py
-      - run: python -I tests/test_intents.py
-      - run: python -I tests/test_parallel.py
-      - run: python -I tests/test_create.py
-      - run: python -I tests/test_companion.py
-      - run: python -I tests/test_rename.py
-      - run: python -I tests/test_live.py
-      - run: python -I tests/test_macos.py
+      - name: Tests (every file, as the release build runs them)
+        shell: bash
+        run: |
+          failed=""  # run every file, then list all failures at once
+          for f in tests/test_*.py; do python -I "$f" || failed="$failed $f"; done
+          if [ -n "$failed" ]; then echo "FAILED:$failed"; exit 1; fi
   web:
     runs-on: ubuntu-latest
     steps:

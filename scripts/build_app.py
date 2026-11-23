@@ -82,6 +82,7 @@ def main() -> None:
          *(["--collect-all", "piper"] if _has("piper") else []),  # voice: espeak-ng data + models code
          # document makers keep templates/fonts next to their code
          *[x for m in ("docx", "pptx", "fpdf") if _has(m) for x in ("--collect-data", m)],
+         *(["--collect-data", "tzdata"] if _has("tzdata") else []),  # time zones of imported calendars (zoneinfo)
          *[x for m in ("docx", "pptx", "fpdf", "openpyxl", "pypdf", "websockets") if _has(m) for x in ("--hidden-import", m)],
          *(["--collect-submodules", "websockets"] if _has("websockets") else []),
          # not used by the desktop app (speech-to-text lives in `vaelon voice`): ~230 MB lighter

@@ -79,8 +79,11 @@ class App(unittest.TestCase):
         self.assertEqual((code, body["ok"]), (200, True))
         self.assertNotIn(GROQ, raw)
         self.assertEqual(config.env("GROQ_API_KEY"), GROQ)  # usable by the core ...
-        sealed = (config.HOME / "secrets" / "key_GROQ_API_KEY").read_bytes()
-        self.assertNotIn(GROQ.encode(), sealed)  # ... encrypted on disk ...
+        stored = config.HOME / "secrets" / "key_GROQ_API_KEY"
+        if sys.platform in ("win32", "darwin"):
+            self.assertNotIn(GROQ.encode(), stored.read_bytes())  # ... encrypted on disk (DPAPI / Keychain key) ...
+        else:  # Linux and others: no system key store - only the owner may read the file (said in PRIVACY.md)
+            self.assertEqual(stored.stat().st_mode & 0o777, 0o600)
         for path in ("/settings", "/settings?probe=0", "/catalog", "/voice"):
             self.assertNotIn(GROQ, self.call("GET", path)[2])  # ... and in no answer of the API
         audit_log = (config.HOME / "audit.jsonl").read_text("utf-8")

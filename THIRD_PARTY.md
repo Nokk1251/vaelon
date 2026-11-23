@@ -18,7 +18,7 @@ The MCP client (`src/vaelon/mcp.py`) was written from the public Model Context P
 (modelcontextprotocol.io); no SDK or other implementation was used or copied.
 
 Runtime dependencies keep their own licenses (requests, three.js, Next.js, React, react-markdown and
-remark-gfm (MIT), python-docx, openpyxl and python-pptx (MIT), websockets (BSD-3-Clause), fpdf2 (LGPL-3.0), pypdf (BSD-3-Clause), Pillow (MIT-CMU), Piper voices, etc.). piper-tts is GPL-3.0-or-later, which is compatible with Vaelon's own GPL-3.0-or-later license.
+remark-gfm (MIT), python-docx, openpyxl and python-pptx (MIT), websockets (BSD-3-Clause), fpdf2 (LGPL-3.0), pypdf (BSD-3-Clause), Pillow (MIT-CMU), tzdata on Windows (Apache-2.0), Piper voices, etc.). piper-tts is GPL-3.0-or-later, which is compatible with Vaelon's own GPL-3.0-or-later license.
 Piper voice models (bg_BG-dimitar, en_GB-alan) are downloaded by `vaelon voice-setup`; see their MODEL_CARD files.
 
 Vaelon is an original name. Earlier private builds used a working title; the project was renamed before its
