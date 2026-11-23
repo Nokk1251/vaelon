@@ -41,8 +41,8 @@ Compare a download with `SHA256SUMS.txt` on the release page if you want to be s
 
 **The first start** opens a short setup. The one choice that matters is **where Vaelon thinks**:
 - **On this computer** (private, nothing leaves it): install the free **Ollama** app - the setup has a
-  **Get Ollama** button that opens its download page - then download the model in a terminal:
-  `ollama pull qwen3:4b-instruct` (about 2.5 GB). The setup sees it by itself within a few seconds.
+  **Get Ollama** button that opens its download page - then press **Download the model** (about 2.5 GB, with a
+  progress bar; no terminal needed). The setup says by itself when the model is ready.
 - **In the cloud** (faster, your text goes to that company): paste your own key (Groq and Gemini have free plans) into
   the key box of the setup or of Settings - never into the chat.
 
