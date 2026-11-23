@@ -9,6 +9,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 os.environ["VAELON_HOME"] = tempfile.mkdtemp()
 OUT = Path(tempfile.mkdtemp())
@@ -161,14 +162,24 @@ class Packaging(unittest.TestCase):
     def test_the_installed_app_ignores_a_foreign_ui_folder(self):  # packaging review 7b
         evil = Path(tempfile.mkdtemp())
         (evil / "index.html").write_text("<script>steal()</script>", "utf-8")
-        os.environ["VAELON_UI_DIR"] = str(evil)
-        try:
+        with mock.patch.dict(os.environ, {"VAELON_UI_DIR": str(evil)}):
             self.assertEqual(server.ui_dir(), evil.resolve())  # from source (developers): allowed
-            sys.frozen = True
-            self.assertNotEqual(server.ui_dir(), evil.resolve())  # the installed app: never
-        finally:
-            del sys.frozen
-            os.environ.pop("VAELON_UI_DIR", None)
+            with mock.patch.object(sys, "frozen", True, create=True):
+                self.assertNotEqual(server.ui_dir(), evil.resolve())  # the installed app: never
+
+    def test_from_source_the_fresh_build_wins_over_a_packaged_copy(self):  # a stale build_app copy hid new UIs
+        root = Path(tempfile.mkdtemp())
+        pkg = root / "src" / "vaelon"
+        for d in (pkg / "webui", root / "ui" / "web" / "out"):
+            d.mkdir(parents=True)
+            (d / "index.html").write_text("x", "utf-8")
+        with mock.patch.dict(os.environ), mock.patch.object(server, "__file__", str(pkg / "server.py")):
+            os.environ.pop("VAELON_UI_DIR", None)  # a developer's own setting must not decide this test
+            self.assertEqual(server.ui_dir(), (root / "ui" / "web" / "out").resolve())  # from source
+            with mock.patch.object(sys, "frozen", True, create=True):
+                self.assertEqual(server.ui_dir(), (pkg / "webui").resolve())  # the installed app: its own copy only
+                (pkg / "webui" / "index.html").unlink()
+                self.assertIsNone(server.ui_dir())  # never a folder outside the package
 
     def test_a_signing_key_can_never_be_committed(self):  # packaging review 7c
         import importlib.util

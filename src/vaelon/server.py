@@ -56,14 +56,21 @@ CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 
 
 
 def ui_dir() -> Path | None:
-    """Built web UI: $VAELON_UI_DIR, the packaged copy (vaelon/webui) or the source checkout (ui/web/out)."""
+    """Built web UI. The installed app: only its packaged copy (vaelon/webui). From source: $VAELON_UI_DIR, then the
+    fresh build of the checkout (ui/web/out), then a packaged copy."""
     import sys
 
     here = Path(__file__).resolve().parent
+    packaged, source = here / "webui", here.parent.parent / "ui" / "web" / "out"
     # the installed app serves ONLY its own interface: an environment variable must never point the signed app at
-    # another folder (that page would get the access key) - VAELON_UI_DIR is for developers running from source
-    env_dir = None if getattr(sys, "frozen", False) else os.environ.get("VAELON_UI_DIR")
-    for cand in (env_dir, here / "webui", here.parent.parent / "ui" / "web" / "out"):
+    # another folder (that page would get the access key) - VAELON_UI_DIR is for developers running from source.
+    # From source the checkout's own build goes first: scripts/build_app.py leaves a copy in vaelon/webui, and that
+    # copy would otherwise hide every later `npm run build` (the app showed an interface days old).
+    if getattr(sys, "frozen", False):
+        order: tuple = (packaged,)
+    else:
+        order = (os.environ.get("VAELON_UI_DIR"), source, packaged)
+    for cand in order:
         if cand and (Path(cand) / "index.html").exists():
             return Path(cand).resolve()
     return None
