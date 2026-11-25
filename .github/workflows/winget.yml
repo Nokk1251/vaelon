@@ -1,0 +1,34 @@
+# Opens the winget update ("Update: Nokk_7.Vaelon to X.Y.Z") when a release is RELEASED (published and not a
+# pre-release), or by hand with "Run workflow" and a version. The token lives in the protected environment "winget"
+# (tags v* only, approved by the owner) - see docs/PUBLISHING.md, section 8. Without it the job warns and sends nothing.
+# Only the Python standard library runs next to the token (nothing is installed). Every `uses:` is pinned to a commit SHA.
+name: winget
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to submit, e.g. 0.20.0 (must be a published release)"
+        required: true
+permissions:
+  contents: read
+concurrency: winget
+jobs:
+  winget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: winget
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with: { python-version: "3.13" }
+      - name: Open the winget pull request
+        env:
+          # the version reaches the script as data (never pasted into the shell command); the script refuses anything
+          # that is not 1.2.3, and drafts or pre-releases
+          VERSION: ${{ github.event.release.tag_name || inputs.version }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python -I scripts/winget_update.py "$VERSION"
