@@ -40,6 +40,8 @@ To update, run the new installer over the old version. Updating or uninstalling 
 Settings > Updates can tell you when a new version is out (off by default; it asks GitHub only for the version
 number and never downloads anything by itself).
 Compare a download with `SHA256SUMS.txt` on the release page if you want to be sure it was not changed.
+Once the project's release key is published (`release-key.pub`), every download also carries a `.minisig` signature:
+`minisign -H -Vm FILE -P KEY` (see docs/PUBLISHING.md, section 7b).
 
 **The first start** opens a short setup. The one choice that matters is **where Vaelon thinks**:
 - **On this computer** (private, nothing leaves it): install the free **Ollama** app - the setup has a

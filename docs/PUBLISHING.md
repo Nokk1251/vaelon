@@ -48,6 +48,52 @@ Releases are not code-signed (the owner's decision, 2026-11-18: no paid certific
 > "Open Anyway"). Users can check a download against `SHA256SUMS.txt` on the release page. If this changes later,
 SignPath Foundation signs open-source projects free of charge once the repository builds in GitHub Actions.
 
+## 7b. Release signatures (minisign, key offline)
+Every release file can carry a signature (`FILE.minisig`, minisign format) made with Vaelon's release key. The key
+stays OFFLINE on the owner's computer, encrypted with a password - it never goes to GitHub. People who use Vaelon do
+nothing different; anyone who wants can check a download.
+
+What it proves: the file is exactly the one the owner signed for that version, under that name. It protects against
+a file replaced later (on GitHub, a mirror, a download site, a cache) and against an old version renamed as a new one.
+Because the key is not on GitHub, a taken-over GitHub account cannot make new valid signatures - but that protects only
+people who already have the real public key (an earlier copy, or one from another place). Someone who took over the
+account could also replace `release-key.pub` on GitHub and the website, so a key change without a signature from the
+old key is a warning sign. What it does not prove: that the code or the build was clean - the owner signs the files
+that are in the draft at that moment (`sign-draft` prints the draft's `SHA256SUMS.txt`: compare it with the "Checksums"
+step in the log of the release run). It cannot help if the owner's own computer or the key's password is compromised.
+
+**Making the key (once, by the owner):**
+1. Outside the project folder (the script refuses a path inside it) and outside folders that sync to a cloud (OneDrive,
+   Dropbox), with a long password - a passphrase of a few words, at least 12 characters:
+   ```powershell
+   python scripts/release_sign.py keygen "$env:USERPROFILE\vaelon-keys\vaelon-release.key"
+   ```
+   It writes the public key to `release-key.pub` (commit it in a pull request) and the SECRET key - encrypted with the
+   password - to the file you named. Nothing secret is printed.
+2. Keep ONE backup of that encrypted file (e.g. in a password manager, or on a USB stick) and keep the password in the
+   password manager. Without both, a lost key can only be replaced by a new one.
+
+**Each release:** the tag builds the draft as before. Then, before pressing Publish:
+```powershell
+python scripts/release_sign.py sign-draft 0.20.0 --key "$env:USERPROFILE\vaelon-keys\vaelon-release.key"
+```
+It refuses if there is more than one draft for that version, asks for the password, downloads the draft's files with
+your GitHub CLI login, checks every file against `SHA256SUMS.txt` (and prints it - compare it with the run's log), signs
+them all, uploads the `.minisig` files and checks that every file of the draft now has exactly one signature. Then
+press Publish. If anything fails nothing is published: fix it and run the command again. Turn on "immutable releases"
+(repository Settings) so a published release can no longer be changed.
+
+**A new key (rotation):**
+1. `python scripts/release_sign.py keygen <new key file> --pub-dir new-key` (writes `new-key\release-key.pub`).
+2. `python scripts/release_sign.py sign new-key\release-key.pub --key <OLD key file>` (the old key still matches the
+   published `release-key.pub`).
+3. A pull request that replaces `release-key.pub` with the new one and adds `release-key.pub.minisig`; say it in the
+   release notes. A key change without that signature is a warning sign.
+
+**Checking a download (anyone):** `minisign -H -Vm Vaelon-Setup-X.Y.Z.exe -P <public key line from release-key.pub>`,
+and check that the "file:" shown is the name you expect - or, from a source checkout,
+`python scripts/release_sign.py verify Vaelon-Setup-X.Y.Z.exe` (the `.minisig` file next to it).
+
 ## 8. winget
 ```powershell
 winget install wingetcreate
