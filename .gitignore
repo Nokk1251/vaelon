@@ -15,6 +15,7 @@ dist/
 CLAUDE.md
 .claude/
 installer/Output/
+installer/winget/out/
 release/
 NEXT_CHAT.md
 versions/

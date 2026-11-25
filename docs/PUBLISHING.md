@@ -49,12 +49,45 @@ Releases are not code-signed (the owner's decision, 2026-11-18: no paid certific
 SignPath Foundation signs open-source projects free of charge once the repository builds in GitHub Actions.
 
 ## 8. winget
+Vaelon was submitted to the Windows Package Manager as `Nokk_7.Vaelon` (microsoft/winget-pkgs#489220, passed Microsoft's
+checks, waiting for a volunteer moderator). Once it is merged: `winget install Vaelon`. Every later version needs its
+own update pull request there, or `winget upgrade` keeps offering the old one. Keep the fork `Nokk1251/winget-pkgs`:
+the updates are opened from it.
+
+`scripts/winget_update.py` prepares the update from `installer/winget/*.yaml`: it reads the installer's SHA-256 from the
+published release (GitHub's digest of the asset and `SHA256SUMS.txt` must both exist and agree), fills the three
+manifests and opens "Update: Nokk_7.Vaelon to X.Y.Z". It refuses drafts and pre-releases, an odd version, a version
+already in winget or already proposed by someone else, and - while the first submission still waits - a second "New
+package". It uses only Python's standard library.
+
+Look first, nothing sent:
 ```powershell
-winget install wingetcreate
-wingetcreate new https://github.com/Nokk1251/vaelon/releases/download/v0.5.0/Vaelon-Setup-0.5.0.exe
+python scripts/winget_update.py 0.20.0 --dry-run
+winget validate --manifest installer/winget/out/0.20.0
 ```
-It writes the manifest and opens the pull request to `microsoft/winget-pkgs`. After it is merged:
-`winget install Nokk1251.Vaelon`.
+
+**Way A - from this computer (recommended: no token stored anywhere):** after publishing a release,
+```powershell
+$env:WINGET_TOKEN = (gh auth token); python scripts/winget_update.py 0.20.0; Remove-Item Env:WINGET_TOKEN
+```
+(`gh auth token` is your normal GitHub CLI login; it is used for this one run and sent only to api.github.com.)
+
+**Way B - automatic:** `.github/workflows/winget.yml` runs when a release is released (not for drafts or
+pre-releases). It needs a *classic* personal access token with only the `public_repo` scope (fine-grained tokens cannot
+open pull requests in another owner's repository). Be clear about the risk: `public_repo` can write to ALL your public
+repositories - including `Nokk1251/vaelon` itself (push code, create tags and releases, replace release files). It
+cannot change workflow files. So, if you choose Way B:
+1. Give the token a short expiry (30-90 days) and renew it.
+2. Keep it only in the protected environment `winget` (Settings > Environments > winget): deployment rule "selected
+   tags" `v*`, required reviewer = you. Then the token is released only for a version tag, after your click.
+   ```powershell
+   gh secret set WINGET_TOKEN --repo Nokk1251/vaelon --env winget
+   ```
+3. Settings > Branches > main: turn on "Do not allow bypassing the above settings", so even an admin token cannot push
+   to `main` directly.
+
+Without the secret the workflow shows a warning and sends nothing. The Microsoft CLA was signed once (2026-11-25) and
+covers later pull requests; Microsoft's checks and a volunteer moderator review each one.
 
 ## 9. Updates (ready)
 `vaelon update` asks the public release page whether a newer version exists and prints the link. Nothing is
