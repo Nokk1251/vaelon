@@ -1,0 +1,19 @@
+# Every text file is stored and checked out with LF line endings, on every system (a file written with Windows line
+# endings would otherwise show as completely changed in a review).
+* text=auto eol=lf
+
+# Binary files: never touched.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dmg binary
+*.onnx binary
+*.woff binary
+*.woff2 binary
