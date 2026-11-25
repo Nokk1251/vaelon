@@ -5,6 +5,10 @@
 - English answers and the Deals tab write "no." before a bill or invoice number instead of the numero sign
   (Bulgarian answers and the Bulgarian invoice keep it).
 - The README shows a short demo of the app instead of a still picture.
+### Fixed
+- When the graphics cannot be used (very little free memory, a graphics driver reset) the window shows a calm glow
+  instead of an empty space where the swarm should be, says why in the console, and brings the swarm back by itself
+  as soon as it can; Help > "When something does not work" explains what to try.
 
 ## 0.19.0 - 2026-11-23
 ### Added
