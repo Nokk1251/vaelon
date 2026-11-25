@@ -171,6 +171,9 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
 - **"Core offline"**: close Vaelon and start it again (from a source install: \`vaelon app\`).
 - **Ollama is not answering**: install it with **Get Ollama** in Settings and start it (on a Mac it shows a llama in the menu bar).
 - **The local model is missing**: press **Download the model** in Settings (or run \`ollama pull <model>\` in a terminal).
+- **The moving swarm is missing** (a still glow instead): the graphics could not be used just then - often very
+  little free memory or a graphics driver reset. Vaelon tries again every few seconds by itself; closing other programs
+  or restarting Vaelon helps, and updating the graphics driver if it keeps happening. Everything else works without it.
 - **No voice**: add a system voice for that language (see *Voice*).
 - **The microphone does not hear you**: Windows - Settings > Privacy & security > Microphone, allow desktop apps. Mac - System Settings > Privacy & Security > Microphone, switch Vaelon on. In the companion, click once to allow audio.
 - **Web search finds nothing**: the free search engines limit how often they answer. Wait a minute, or add a Tavily or Brave key in Settings.

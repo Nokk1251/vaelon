@@ -58,6 +58,15 @@ code { font-family: var(--mono); font-size: 0.92em; color: var(--accent-2); }
 /* ---------- the swarm and its sky ---------- */
 .stage { position: absolute; inset: 0; z-index: 1; }
 .stage canvas { display: block; }
+/* no WebGL right now (or the context was lost): a calm ember glow where the swarm would be, never an empty window */
+.stage.swarm-fallback canvas { display: none; }
+.stage.swarm-fallback::after {
+  content: ""; position: absolute; left: 50%; top: 42%; width: min(46vw, 520px); aspect-ratio: 1;
+  transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 140, 60, 0.30) 0%, rgba(214, 92, 30, 0.14) 34%, rgba(120, 40, 10, 0.05) 58%, transparent 70%);
+  animation: fallbackGlow 7s ease-in-out infinite;
+}
+@keyframes fallbackGlow { 0%, 100% { opacity: 0.65; transform: translate(-50%, -50%) scale(0.96); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.04); } }
 .sky {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background:
@@ -675,6 +684,7 @@ code.grow { font-size: 12.5px; word-break: break-all; }
 @media (max-width: 900px) { .chip .chip-label { display: none; } }
 
 @media (prefers-reduced-motion: reduce) {
+  .stage.swarm-fallback::after { animation: none; }
   .pulse-line .dot, .tear.on, .shell .stage canvas, .msg, .halo i, .halo-word, .msg.thinking span, .panel, .scan, .welcome,
   .tag, .toast { animation: none !important; }
 }

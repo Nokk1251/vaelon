@@ -32,6 +32,8 @@ export type SwarmApi = {
   figure(kind?: string): void;
   /** what this start looks like: entrance, tint, seed, the figure being formed (for tests and curiosity) */
   readonly look: { entrance: string; tint: number[]; seed: number; figure: string | null };
+  /** is the swarm being drawn, and if not, why (no WebGL, context lost) - also shown as the stage's fallback glow */
+  status(): { drawing: boolean; reason: string };
   dispose(): void;
 };
 
@@ -174,6 +176,20 @@ export function createSwarm(container: HTMLElement, opts: { compact?: boolean } 
   let renderer: THREE.WebGLRenderer | null = null;
   let lostAt = 0;
   let retryAt = 0;
+  // While nothing can be drawn the stage shows a calm glow instead of an empty window (class swarm-fallback), and the
+  // reason is logged once - so a missing swarm is visible and explainable, never just "gone".
+  let fallbackReason = "";
+  let drawing = false;
+  const setFallback = (reason: string) => {
+    drawing = !reason;
+    container.classList.toggle("swarm-fallback", !!reason);
+    if (reason && reason !== fallbackReason) {
+      console.warn(`Vaelon swarm: ${reason} - showing the still glow and trying again every 3 seconds.`);
+    } else if (!reason && fallbackReason) {
+      console.info("Vaelon swarm: drawing again.");
+    }
+    fallbackReason = reason;
+  };
   const makeRenderer = (): THREE.WebGLRenderer | null => {
     try {
       const r = new THREE.WebGLRenderer({ antialias: false, alpha: true, powerPreference: "high-performance" });
@@ -183,7 +199,8 @@ export function createSwarm(container: HTMLElement, opts: { compact?: boolean } 
       r.domElement.addEventListener("webglcontextrestored", () => (lostAt = 0));
       container.appendChild(r.domElement);
       return r;
-    } catch {
+    } catch (e) {
+      setFallback(`no WebGL (${e instanceof Error ? e.message.slice(0, 80) : "unknown"})`);
       return null;
     }
   };
@@ -453,7 +470,11 @@ export function createSwarm(container: HTMLElement, opts: { compact?: boolean } 
       if (!renderer) return;
       clock.getDelta(); // no jump after the pause
     }
-    if (lostAt) return; // the browser may still give the context back by itself
+    if (lostAt) {
+      if (drawing || !fallbackReason) setFallback("the graphics context was lost (low memory or a GPU reset)");
+      return; // the browser may still give the context back by itself
+    }
+    if (!drawing) setFallback("");
     if (energy > 0.5 && now - lastRender < 33) return;
     lastRender = now;
     const t0 = performance.now();
@@ -748,6 +769,9 @@ export function createSwarm(container: HTMLElement, opts: { compact?: boolean } 
     },
     get look() {
       return { entrance, tint, seed: S, figure: form ? form.kind : null };
+    },
+    status() {
+      return { drawing, reason: fallbackReason };
     },
     dispose() {
       disposed = true;
