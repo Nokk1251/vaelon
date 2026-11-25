@@ -2,6 +2,8 @@
 # "Run workflow" on the Actions tab - and attaches them to a DRAFT GitHub Release together with SHA-256 checksums and a
 # list of every bundled library (SBOM). Nothing is published until you press "Publish". The version always comes from
 # src/vaelon/__init__.py.
+# Signatures are NOT made here: the release key stays offline on the owner's computer. Before pressing Publish run
+#   python scripts/release_sign.py sign-draft X.Y.Z --key <key file>   (docs/PUBLISHING.md, section 7b)
 name: release
 on:
   push:
@@ -121,6 +123,7 @@ jobs:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2
         with:
           tag_name: v${{ needs.windows.outputs.version }}
+          target_commitish: ${{ github.sha }}  # the tag is made on the commit that was built, nothing else
           name: Vaelon ${{ needs.windows.outputs.version }}
           draft: true
           generate_release_notes: true
