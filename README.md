@@ -111,6 +111,14 @@ docx, xlsx, pptx, txt, csv ...). Vaelon looks at the picture or reads the docume
   `qwen/qwen3.8-27b` is used automatically (`vaelon config vision_cloud_model <name>` to change it).
 - Vaelon never invents the content of a file or picture it was not shown - it asks for it.
 
+## Ask your folder
+Settings > **Your folders**: add a folder (inside the folders Vaelon may use) and ask about what is in it - "When does
+the lease end?", "What do my notes say about X?". Vaelon reads the PDF, Word, Excel, PowerPoint, text and Markdown
+files into an encrypted index on this computer and answers from the best passages, naming the file - or says plainly
+that the documents do not contain it. Search is by words (no model download). Document text is treated as outside
+content: it can inform an answer but never give Vaelon orders. Hidden files, links pointing elsewhere and sensitive
+files (keys, passwords) are skipped. From a source install: `vaelon library add <folder>`, `vaelon library ask "..."`.
+
 ## Several tasks at once
 You do not have to wait for one answer before asking the next: up to four requests run at the same time, each on its
 own agent (same memory, same safety rules, one shared conversation).

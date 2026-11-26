@@ -482,6 +482,33 @@ def cmd_demo(a, cfg):
         print(demo.text(demo.remove(), False, False))
 
 
+def cmd_library(a, cfg):
+    """Ask your folder: the folders whose documents Vaelon can search (index encrypted, nothing leaves the PC)."""
+    from . import library
+    from .security.policy import PolicyError
+
+    try:
+        if a.action == "add":
+            out = library.add(cfg, a.arg)
+            print(f"Added {out['folder']}: {out['files']} documents, {out['skipped']} skipped.")
+        elif a.action == "remove":
+            print("Removed." if library.remove(a.arg) else "That folder is not in the library.")
+        elif a.action == "refresh":
+            for r in library.refresh(cfg):
+                print(r.get("error") or f"{r['folder']}: {r['files']} documents ({r['read']} read again)")
+        elif a.action == "ask":
+            for h in library.search(a.arg, roots=list(cfg.allowed_roots)):
+                print(f"\n[{h['file']}, part {h['part']}]\n{h['text'][:600]}")
+        else:
+            for r in library.folders() or []:
+                print(f"{r['path']}: {r['files']} documents, {r['passages']} passages, updated {r['updated']}"
+                      + (f", {r['skipped']} skipped" if r["skipped"] else ""))
+            if not library.folders():
+                print("No folders yet: vaelon library add <folder>")
+    except (library.LibraryError, PolicyError) as e:
+        raise SystemExit(f"library: {e}") from None
+
+
 def cmd_mcp(a, cfg):
     """Connections to outside tool servers (Model Context Protocol). Only this command can add or change them."""
     from . import mcp
@@ -679,6 +706,10 @@ def main(argv=None):
     cp = sub.add_parser("company", help="company mode: people with roles, companies, the journal")
     cp.add_argument("action", choices=["status", "enable", "disable", "reset-owner-pin"])
     cp.set_defaults(fn=cmd_company)
+    lb = sub.add_parser("library", help="ask your folder: list / add FOLDER / remove FOLDER / refresh / ask QUESTION")
+    lb.add_argument("action", nargs="?", default="list", choices=["list", "add", "remove", "refresh", "ask"])
+    lb.add_argument("arg", nargs="?", default="")
+    lb.set_defaults(fn=cmd_library)
     dm = sub.add_parser("demo", help="load / remove made-up data to try the Money panel and the calendar")
     dm.add_argument("action", choices=["load", "remove"])
     dm.set_defaults(fn=cmd_demo)

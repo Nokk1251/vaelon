@@ -156,6 +156,18 @@ Every tool of a server is fingerprinted. If the server later changes a tool, Vae
 - \`vaelon memory wipe\` erases memory and all chats.`,
   },
   {
+    id: "folders",
+    title: "Ask your folder",
+    body: `- Settings → **Your folders** → add a folder (it must be inside the folders Vaelon may use). Vaelon reads the PDF, Word, Excel, PowerPoint, text and Markdown files in it.
+- Then just ask: *"When does my lease end?"*, *"What do my course notes say about photosynthesis?"*, *"Which contract mentions a notice period?"*. The answer names the file it came from - and says so when the documents do not contain it.
+- **Private:** the index is kept on this computer, encrypted. With the local model nothing leaves the computer. With a cloud model, the few passages that answer a question are sent to it together with the question.
+- **Safe:** text inside a document is treated like a web page - it can inform an answer but never give Vaelon orders. Hidden files, links pointing elsewhere, files that are only in the cloud (OneDrive) and sensitive files (keys, passwords, recovery codes, wallets) are skipped; keys and card numbers inside a document are blanked.
+- **Your own links:** a link that appears only in your files or mail is opened only after you say yes - a planted document could use links to carry your data out.
+- Changed files are read again in the background (at most every few minutes; the question being asked uses what was read before), or at once with **Read changes now**. **Remove** deletes the folder's index (not your files).
+- Search is by words for now, so use words that appear in the documents.
+- From a source install: \`vaelon library add <folder>\`, \`vaelon library ask "question"\`.`,
+  },
+  {
     id: "updates",
     title: "Updates",
     body: `- **Off until you turn it on.** Settings → Updates → *Check once a day* (also across restarts). Or press **Check now** (at most once a minute).

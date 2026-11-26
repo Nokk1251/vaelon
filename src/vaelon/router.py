@@ -40,6 +40,8 @@ GROUP_WORDS = {
              "ддс еик похарч харча заплат лимит приход bill bills invoice invoices paid owe owes expense expenses spent "
              "spend budget rent utilit receipt vat income salary limit сделк оферт клиент deal deals pipeline "
              "proposal client lead извлечение statement bank банк",
+    "library": "папка папката папки документите файловете бележките договор договорите записките "
+               "folder folders my documents my files my notes contract contracts library indexed",
     "create": "документ доклад отчет word docx pdf excel xlsx таблица презентация слайд powerpoint pptx аудио подкаст "
               "запис озвучи прочети на глас document report letter spreadsheet presentation slides deck audio podcast "
               "narrate read aloud recording",

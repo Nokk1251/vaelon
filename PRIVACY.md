@@ -32,6 +32,7 @@ Erase at any time: `/clear` in the app (the open conversation), the ❏ list (an
 | ElevenLabs voice | The text that is spoken (at most ~600 characters per answer) | ElevenLabs |
 | Live voice (the bolt in the companion) | Your microphone audio, continuously while it is on; with the eye on, a picture of your screen every few seconds | Google (Gemini Live) |
 | Screen sharing (the eye) without Live | A screenshot, only when you ask about the screen | Your cloud model |
+| Ask your folder (Settings > Your folders) with a cloud model | The few passages of your documents that answer a question, with the question. The index itself stays on this computer, encrypted (`library.enc`) | Your cloud model |
 | A search key you stored (Tavily or Brave Search) | The search words of a web search - never the conversation | That search service |
 | An MCP server you added (`vaelon mcp add`) | What Vaelon passes to its tools - shown to you before every call unless you allowed that tool | That program or service |
 | Telegram, email, SMS, calls | The messages you ask Vaelon to send | Telegram / your mail server / Twilio |

@@ -19,27 +19,58 @@ from .registry import tool
 TEXT_EXT = {".txt", ".md", ".py", ".js", ".ts", ".json", ".csv", ".log", ".html", ".xml", ".yaml", ".yml", ".ini"}
 
 
-def _read_any(p: Path, limit: int) -> str:
-    ext = p.suffix.lower()
+OFFICE_EXT = {".docx", ".xlsx", ".pptx"}
+# an Office file is a zip: refuse "zip bombs" (a few KB that unpack to GBs of XML) BEFORE a parser opens them
+ZIP_MAX_MEMBERS = 2000
+ZIP_MAX_TOTAL = 100 * 1024 * 1024
+ZIP_MAX_MEMBER = 50 * 1024 * 1024
+ZIP_MAX_RATIO = 100  # for members over 1 MB unpacked
+
+
+def check_zip(data: bytes) -> None:
+    """Raise unless DATA is a zip whose unpacked size and packing ratio are sane (zipfile never reads past the declared
+    size, so the declared sizes can be trusted for this)."""
+    import zipfile
+
+    try:
+        infos = zipfile.ZipFile(io.BytesIO(data)).infolist()
+    except zipfile.BadZipFile:
+        raise RuntimeError("not a valid Office file (damaged zip)") from None
+    if len(infos) > ZIP_MAX_MEMBERS:
+        raise RuntimeError("too many parts inside this Office file")
+    total = 0
+    for i in infos:
+        total += i.file_size
+        if i.file_size > ZIP_MAX_MEMBER or total > ZIP_MAX_TOTAL:
+            raise RuntimeError("this Office file unpacks to far too much data - not read")
+        if i.file_size > 1024 * 1024 and i.file_size > ZIP_MAX_RATIO * max(1, i.compress_size):
+            raise RuntimeError("this Office file is packed suspiciously tightly (a zip bomb?) - not read")
+
+
+def read_bytes(data: bytes, ext: str, limit: int) -> str:
+    """The text of a document given as bytes (no file system access: the caller opened and checked the file)."""
+    ext = ext.lower()
+    if ext in OFFICE_EXT:
+        check_zip(data)
     if ext == ".pdf":
         try:
             from pypdf import PdfReader
         except ImportError:
             raise RuntimeError('PDF support: pip install "vaelon[docs]"')
-        reader = PdfReader(str(p))
+        reader = PdfReader(io.BytesIO(data))
         return "\n".join((pg.extract_text() or "") for pg in reader.pages[:60])[:limit]
     if ext == ".docx":
         try:
             import docx
         except ImportError:
             raise RuntimeError('Word support: pip install "vaelon[docs]"')
-        return "\n".join(par.text for par in docx.Document(str(p)).paragraphs)[:limit]
+        return "\n".join(par.text for par in docx.Document(io.BytesIO(data)).paragraphs)[:limit]
     if ext == ".xlsx":
         try:
             import openpyxl
         except ImportError:
             raise RuntimeError('Excel support: pip install "vaelon[docs]"')
-        wb = openpyxl.load_workbook(str(p), read_only=True, data_only=True)
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
         out = []
         for ws in wb.worksheets[:5]:
             out.append(f"# {ws.title}")
@@ -53,14 +84,25 @@ def _read_any(p: Path, limit: int) -> str:
         except ImportError:
             raise RuntimeError('PowerPoint support: pip install "vaelon[docs]"')
         out = []
-        for n, slide in enumerate(Presentation(str(p)).slides, 1):
+        for n, slide in enumerate(Presentation(io.BytesIO(data)).slides, 1):
             texts = [sh.text_frame.text for sh in slide.shapes if sh.has_text_frame and sh.text_frame.text.strip()]
             out.append(f"# Slide {n}\n" + "\n".join(texts))
         return "\n\n".join(out)[:limit]
-    if ext in TEXT_EXT or p.stat().st_size < 2_000_000:
-        with p.open("r", encoding="utf-8", errors="replace") as fh:
-            return fh.read(max(1, min(limit, 400_000)))
+    if ext in TEXT_EXT or len(data) < 2_000_000:
+        return data[:4 * max(1, min(limit, 400_000))].decode("utf-8", errors="replace")[:max(1, min(limit, 400_000))]
     raise RuntimeError(f"unsupported file type {ext}")
+
+
+def _read_any(p: Path, limit: int) -> str:
+    ext = p.suffix.lower()
+    if ext not in OFFICE_EXT and ext != ".pdf" and ext not in TEXT_EXT and p.stat().st_size >= 2_000_000:
+        raise RuntimeError(f"unsupported file type {ext}")
+    if p.stat().st_size > 200 * 1024 * 1024:
+        raise RuntimeError("the file is too large to read")
+    if ext not in OFFICE_EXT and ext != ".pdf":  # plain text: only what can be used
+        with p.open("rb") as fh:
+            return read_bytes(fh.read(4 * max(1, min(limit, 400_000))), ext, limit)
+    return read_bytes(p.read_bytes(), ext, limit)
 
 
 @tool("read_document", "Read a document of any common type (pdf, docx, txt, code, csv...) - untrusted content",

@@ -74,6 +74,9 @@ export type FeedbackAnswer = { ok: boolean; error?: string | null; path?: string
 export type SettingsChange = Partial<{ address_as: string; provider: string; model: string; tts_engine: string;
   stt_engine: string; auto_learn: boolean; elevenlabs_monthly_chars: number; setup_done: true; mail_provider: string;
   smtp_host: string; smtp_port: number; imap_host: string; profiles: string[]; update_check: boolean }>;
+/** Settings > Your folders: a folder whose documents Vaelon can search (issue #30). */
+export type LibraryFolder = { path: string; files: number; passages: number; skipped: number; skipped_sample: string[];
+  hidden: number; unavailable: string; updated: string; added: string };
 /** Is there a newer Vaelon? `off` = the daily check is off (only "Check now" asks GitHub). */
 export type UpdateInfo = { enabled: boolean; off?: boolean; current: string; latest: string; newer: boolean; url: string;
   error?: string | null; checking?: boolean };
@@ -162,6 +165,16 @@ export class VaelonApi {
 
   pullStatus(model?: string): Promise<PullStatus> {
     return this.req("GET", `/ollama/pull${model ? `?model=${encodeURIComponent(model)}` : ""}`);
+  }
+
+  /** The folders of "Ask your folder" and the allowed folders a new one must be inside. */
+  library(): Promise<{ folders: LibraryFolder[]; allowed: string[] }> {
+    return this.req("GET", "/library");
+  }
+
+  libraryAct(action: "add" | "remove" | "refresh", path = ""): Promise<{ ok: boolean; error?: string | null;
+    result?: unknown; folders?: LibraryFolder[] }> {
+    return this.ask("/library", { action, path });
   }
 
   /** now = the user pressed "Check now"; otherwise the core answers only when the daily check is on. */
