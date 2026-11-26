@@ -243,7 +243,9 @@ class Model(Base):
         write(self.docs, "a.txt", "The meeting with the architect is on Friday morning.")
         library.add(self.cfg, str(self.docs))
         self.assertTrue(library.search("architect meeting", folder="docs"))
-        self.assertTrue(library.search("architect meeting", folder=str(self.docs)))
+        # the library keeps the REAL path (on CI the temp folder is an 8.3 short name on Windows and /var -> /private/var
+        # on macOS); the model's text is never resolved, so the full path given must be the one the library shows
+        self.assertTrue(library.search("architect meeting", folder=library.folders()[0]["path"]))
         real = Path.resolve
         Path.resolve = lambda self, *a, **k: (_ for _ in ()).throw(AssertionError("resolved a path from the model"))
         try:
