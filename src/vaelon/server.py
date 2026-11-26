@@ -532,7 +532,7 @@ def make_handler(service: Service, token: str, port: int):
                 if not proof.valid_nonce(n):
                     return self._send(400, {"error": "bad nonce"})
                 return self._send(200, {"proof": proof.proof(token, "vaelon-core", n)})
-            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local", "/update")):
+            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local", "/update", "/library")):
                 return self._static()
             if not self._authed():
                 return self._send(403 if self._foreign() else 401, {"error": "unauthorized"})
@@ -590,6 +590,10 @@ def make_handler(service: Service, token: str, port: int):
                 from . import bills_api
 
                 return self._send(200, bills_api.overview())
+            if route == "/library":  # Settings > Your folders (owner only: not in the company allow-list)
+                from . import library
+
+                return self._send(200, {"folders": library.folders(), "allowed": list(service.cfg.allowed_roots)})
             if route == "/calendar":  # the next days of the calendar, for the app's calendar panel
                 from . import calendar_api
 
@@ -820,6 +824,28 @@ def make_handler(service: Service, token: str, port: int):
                 cfg.save()
                 service.cfg.voice = cfg.voice
                 return self._send(200, {"voice": cfg.voice, "engines": tts.engines_status()})
+            if self.path == "/library":  # add / remove / refresh a folder of Settings > Your folders
+                from . import library
+                from .security.policy import PolicyError
+
+                origin = self.headers.get("Origin", "")
+                if origin and not origin.startswith(LOCAL_ORIGINS):
+                    return self._send(403, {"error": "only the app itself may change the library"})
+                action, path = data.get("action"), data.get("path", "")
+                if not isinstance(path, str) or len(path) > 1000:
+                    return self._send(400, {"error": "bad folder"})
+                try:
+                    if action == "add":
+                        result = library.add(service.cfg, path)
+                    elif action == "remove":
+                        result = {"removed": library.remove(path)}
+                    elif action == "refresh":
+                        result = {"folders": library.refresh(service.cfg)}
+                    else:
+                        return self._send(400, {"error": "unknown action"})
+                except (library.LibraryError, PolicyError) as e:
+                    return self._send(400, {"error": str(e)})
+                return self._send(200, {"ok": True, "result": result, "folders": library.folders()})
             if self.path == "/calendar":
                 from . import calendar_api
 

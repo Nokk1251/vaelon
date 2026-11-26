@@ -62,7 +62,8 @@ EGRESS_ARGS = {"web_search": ("query",), "wiki": ("topic",), "learn": ("topic",)
                "package_vulns": ("name",), "free_games": ("platform",), "exchange_rate": ("base", "to")}
 PRIVATE_TOOLS = {"fs_read", "fs_list", "fs_search", "read_document", "look_at_image", "see_screen", "read_email",
                  "contact_lookup", "recall", "bills_list", "bills_summary", "budget_report", "budget_entries", "deals_list",
-                 "agenda", "event_find", "invoices_list", "business_profile", "reminders_list", "scheduled_list"}
+                 "agenda", "event_find", "invoices_list", "business_profile", "reminders_list", "scheduled_list",
+                 "ask_folder", "folders_list"}
 
 
 def _norm(text: str) -> str:
@@ -72,12 +73,25 @@ def _norm(text: str) -> str:
 
 
 SHINGLE = 16
+# short secrets a 16-character piece would miss: a word with letters AND digits (6-64 characters), or any word of 4+
+# characters right after password / passcode / pin / code / key / token
+TOKEN_RX = re.compile(r"(?<!\w)(?=\w*\d)(?=\w*[^\W\d_])\w{6,64}(?!\w)")
+# "password: x7Gq2", "pin = 4821", "code 4821" - a separator, or a value with a digit; never "keyboard", "Key West"
+AFTER_KEY_RX = re.compile(r"(?i)\b(?:password|passcode|passwd|pin|code|key|token|парола|код|пин)\b"
+                          r"(?:\s*[:=]\s*(\S{4,64})|\s+(?=\S*\d)(\S{4,64}))")
+
+
+def _tokens(text: str) -> set[str]:
+    t = unicodedata_casefold(text)[:200_000]
+    found = set(TOKEN_RX.findall(t))
+    found |= {(a or b).strip(".,;:!?\"'()[]") for a, b in AFTER_KEY_RX.findall(t)}
+    return {w for w in found if len(w) >= 4}
 
 
 def note_private(ctx, text: str, words: bool = False) -> None:
     """Remember the user's own data that entered this task (file contents, memory, profile ...). `words`: short values
     (a name, a city) matched as whole words instead of 16-character pieces."""
-    store = ctx.extra.setdefault("private", {"shingles": set(), "words": set()})
+    store = ctx.extra.setdefault("private", {"shingles": set(), "words": set(), "tokens": set()})
     if words:
         for w in re.findall(r"\w{3,}", unicodedata_casefold(text)):
             store["words"].add(w)
@@ -85,6 +99,12 @@ def note_private(ctx, text: str, words: bool = False) -> None:
     n = _norm(text)[:200_000]
     for i in range(0, max(0, len(n) - SHINGLE + 1), 4):
         store["shingles"].add(n[i:i + SHINGLE])
+    store.setdefault("tokens", set()).update(_tokens(text))
+
+
+def note_public(ctx, text: str) -> None:
+    """Tokens that also appeared in a PUBLIC result of this task (a web page, a search hit): those are not secrets."""
+    ctx.extra.setdefault("public_tokens", set()).update(_tokens(text))
 
 
 def unicodedata_casefold(text: str) -> str:
@@ -113,6 +133,12 @@ def _leaks_private(ctx, name: str, args: dict) -> str:
     said = set(re.findall(r"\w{3,}", unicodedata_casefold(text)))
     if (said & store.get("words", set())) - req_words:
         return "profile"
+    strip = ".,;:!?\"'()[]"
+    said_tokens = {w.strip(strip) for w in re.findall(r"\S{4,64}", unicodedata_casefold(text))} | _tokens(text)
+    request = ctx.extra.get("request", "")
+    req_tokens = {w.strip(strip) for w in re.findall(r"\S{4,64}", unicodedata_casefold(request))} | _tokens(request)
+    if (said_tokens & store.get("tokens", set())) - req_words - req_tokens - ctx.extra.get("public_tokens", set()):
+        return "files, mail or memory"
     return ""
 
 
@@ -121,16 +147,21 @@ def _leaks_private(ctx, name: str, args: dict) -> str:
 TAINT_ASK = {"remember", "forget", "undo", "learn_skill", "forget_skill", "delegate"}
 # never covered by cfg.auto_approve (a changed config.json must not let them run unseen, not even in a scheduled task)
 NEVER_AUTO = {"run_command", "self_modify", "self_rollback", "extension_enable", "create_tool", "fs_delete_permanent",
-              "send_email", "send_sms", "make_call", "kill_process", "open_app", "download_file"}
+              "send_email", "send_sms", "make_call", "kill_process", "open_app", "download_file", "folder_add"}
 # - these send a URL out: one the model made up (e.g. "https://evil/?d=<your file>") needs approval; a URL the user
 #   wrote or that came in a result of this task (a search hit, a link on a page) does not.
 EGRESS = {"web_fetch": "url", "learn": "url", "download_file": "url", "check_url": "url"}
 URL_RX = re.compile(r"https?://[^\s<>\"'`)\]]+")
+# after the user's own data was read AND outside content may be steering the task: this many outside calls run freely,
+# every further one asks (the ORDER of calls to planted links can spell out a secret - issue #30, red team R1)
+EGRESS_FREE = 2
 
 
-def note_urls(ctx, text: str) -> None:
-    """Remember the addresses that appeared in the user's request or in a result of this task."""
-    seen = ctx.extra.setdefault("seen_urls", set())
+def note_urls(ctx, text: str, private: bool = False) -> None:
+    """Remember the addresses that appeared in the user's request or in a result of this task. Addresses that appeared
+    only in the user's OWN data (a file, a mail, a folder) are kept apart: a planted document must not be able to hand
+    the model "given" addresses to leak through."""
+    seen = ctx.extra.setdefault("private_urls" if private else "seen_urls", set())
     for u in URL_RX.findall(str(text))[:400]:
         seen.add(u.rstrip(".,;:!?"))
 
@@ -142,10 +173,36 @@ def outside_shown(ctx, records) -> None:
         ctx.tainted = True
 
 
-def _made_up_url(ctx, name: str, args: dict) -> bool:
+def _url_origin(ctx, name: str, args: dict) -> str:
+    """"" when the address was given (the user's request, a public result of this task); "private" when it appeared only
+    in the user's own data; "made_up" when it appeared nowhere."""
     key = EGRESS.get(name)
-    url = str(args.get(key) or "").strip() if key else ""
-    return bool(url) and url.rstrip(".,;:!?") not in ctx.extra.get("seen_urls", set())
+    url = str(args.get(key) or "").strip().rstrip(".,;:!?") if key else ""
+    if not url or url in ctx.extra.get("seen_urls", set()):
+        return ""
+    return "private" if url in ctx.extra.get("private_urls", set()) else "made_up"
+
+
+def _made_up_url(ctx, name: str, args: dict) -> bool:
+    return bool(_url_origin(ctx, name, args))
+
+
+def _is_egress(name: str) -> bool:
+    t = REGISTRY.get(name)
+    return name in EGRESS or bool(t and t.egress) or bool(EGRESS_ARGS.get(name))
+
+
+def _in_request(ctx, name: str, args: dict) -> bool:
+    """The outgoing address or text is the user's own words: never counted against the budget."""
+    request = unicodedata_casefold(ctx.extra.get("request", ""))
+    key = EGRESS.get(name)
+    if key:
+        url = str(args.get(key) or "").strip().rstrip(".,;:!?")
+        return bool(url) and unicodedata_casefold(url) in request
+    t = REGISTRY.get(name)
+    keys = (t.egress if t and t.egress else EGRESS_ARGS.get(name, ()))
+    words = set(re.findall(r"\w+", unicodedata_casefold(" ".join(str(args.get(k) or "") for k in keys))))
+    return bool(words) and words <= set(re.findall(r"\w+", request))
 
 
 @dataclass
@@ -239,7 +296,13 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
     # read the user's own data. Then an address nobody gave, or the user's data going out, needs the user's yes too.
     echo = bool(ctx.extra.get("echo"))
     watch = ctx.tainted or echo or bool(ctx.extra.get("private_read"))
-    made_up = watch and _made_up_url(ctx, name, args)
+    origin = _url_origin(ctx, name, args) if watch else ""
+    made_up = bool(origin)
+    # the budget is for ADDRESSES only (their order can spell a secret); searches go to fixed services
+    over_budget = (bool(ctx.extra.get("private_read")) and (ctx.tainted or echo) and name in EGRESS
+                   and not _in_request(ctx, name, args) and ctx.extra.get("egress_n", 0) >= EGRESS_FREE)
+    if over_budget:
+        needs_confirm = True
     if ((ctx.tainted or echo) and name in TAINT_ASK) or made_up:
         needs_confirm = True
     leak = _leaks_private(ctx, name, args) if watch else ""
@@ -252,7 +315,7 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
         except Exception:
             escalated = True  # cannot tell: ask
     needs_confirm = needs_confirm or escalated
-    forced = escalated or bool(leak) or made_up or ((ctx.tainted or echo) and name in TAINT_ASK)
+    forced = escalated or bool(leak) or made_up or over_budget or ((ctx.tainted or echo) and name in TAINT_ASK)
     if needs_confirm and name in ctx.cfg.auto_approve and not ctx.tainted and not forced and name not in NEVER_AUTO:
         needs_confirm = False
     if needs_confirm and name == "see_screen" and ctx.extra.get("screen_ok") and not ctx.tainted:
@@ -273,8 +336,14 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
         if escalated:
             notes.append("asked because this writes where programs start by themselves, creates a program, or sets up "
                          "something that runs by itself")
-        if made_up:
+        if origin == "private":
+            notes.append("this address came only from your own files or mail - a planted document can contain links "
+                         "meant to carry your data out")
+        elif made_up:
             notes.append("this address was not in your request or in anything Vaelon read for this task")
+        if over_budget:
+            notes.append(f"Vaelon already contacted {ctx.extra.get('egress_n', 0)} outside services after reading your "
+                         "own data in this task")
         if name == "run_command":
             from ..security.policy import STARTS_ITSELF
 
@@ -297,10 +366,21 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
     out = dlp.scrub(out)
     if t.untrusted:
         ctx.tainted = True
-    note_urls(ctx, out)
-    if (t.private or name in PRIVATE_TOOLS) and not out.startswith(("ERROR", "BLOCKED", "DENIED")):
+    is_private = bool(t.private or name in PRIVATE_TOOLS)
+    failed = out.startswith(("ERROR", "BLOCKED", "DENIED"))
+    note_urls(ctx, out, private=is_private)
+    if name in EGRESS and not failed and ctx.extra.get("private_read"):  # counted from the first private read on
+        ctx.extra["egress_n"] = ctx.extra.get("egress_n", 0) + 1
+    if is_private and not failed:
         note_private(ctx, out)
         ctx.extra["private_read"] = True
+    elif t.untrusted and not failed:
+        # tokens a real outside source showed are not secrets - minus what this very call sent (no "washing" a
+        # secret through an echo of the arguments)
+        sent = _tokens(" ".join(str(v) for v in args.values()))
+        before = set(ctx.extra.get("public_tokens", set()))
+        note_public(ctx, out)
+        ctx.extra["public_tokens"] = before | (ctx.extra["public_tokens"] - sent)
     audit.log("tool", tool=name, args=args, ok=not out.startswith(("ERROR", "BLOCKED", "DENIED")))
     if ctx.hooks:
         ctx.hooks.fire("post_tool", tool=name, args=args, result=out)
@@ -317,7 +397,7 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
 
 def load_builtin() -> None:
     from . import coding, comms, create, extensions, files, github, knowledge, memory_tools, perception  # noqa: F401
-    from . import money, planner, security_tools, system, web  # noqa: F401
+    from . import folders, money, planner, security_tools, system, web  # noqa: F401
     from . import evolve  # noqa: F401
     from .. import evolution, learning  # noqa: F401
 

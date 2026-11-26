@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+### Added
+- **Ask your folder**: Settings > Your folders (or `vaelon library add <folder>`) indexes the PDF, Word, Excel,
+  PowerPoint, text and Markdown files of a folder into an encrypted index on this computer; Vaelon then answers
+  questions from the best passages and names the file. Keyword search, no model download. Document text is outside
+  content (fenced, the task is tainted); hidden, linked-out and sensitive files are skipped; owner only.
 ### Changed
 - English answers and the Deals tab write "no." before a bill or invoice number instead of the numero sign
   (Bulgarian answers and the Bulgarian invoice keep it).
