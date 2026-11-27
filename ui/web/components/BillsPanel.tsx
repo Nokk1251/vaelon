@@ -6,13 +6,14 @@ import { STRINGS, type Lang } from "@/lib/i18n";
 import FileCard from "./FileCard";
 import BudgetTab from "./BudgetTab";
 import DealsTab from "./DealsTab";
+import CashFlowTab from "./CashFlowTab";
 import CompanyTab from "./CompanyTab";
 
-export type MoneyTab = "budget" | "due" | "paid" | "deals" | "invoices" | "business" | "company";
+export type MoneyTab = "budget" | "cashflow" | "due" | "paid" | "deals" | "invoices" | "business" | "company";
 type Tab = MoneyTab;
-const TABS: Tab[] = ["budget", "due", "paid", "deals", "invoices", "business", "company"];
+const TABS: Tab[] = ["budget", "cashflow", "due", "paid", "deals", "invoices", "business", "company"];
 // company mode: a tab shows only when the role may read it
-const NEEDS: Record<Tab, string> = { budget: "budget.read", due: "bills.read", paid: "bills.read", deals: "deals.read",
+const NEEDS: Record<Tab, string> = { budget: "budget.read", cashflow: "bills.read,invoices.read,budget.read", due: "bills.read", paid: "bills.read", deals: "deals.read",
   invoices: "invoices.read", business: "profile.write", company: "" };
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -44,7 +45,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
   onCompany?: (s: CompanyState) => void; onClose: () => void; onNote: (s: string) => void }) {
   const { token, lang, onClose, onNote } = props;
   const t = STRINGS[lang];
-  const allowed = (id: Tab) => !props.perms || !NEEDS[id] || props.perms.includes(NEEDS[id]);
+  const allowed = (id: Tab) => !props.perms || !NEEDS[id] || NEEDS[id].split(",").every((p) => props.perms!.includes(p));
   // a role opens on a tab it may see (a viewer of deals only must not land on bills it cannot read)
   const [tab, setTab] = useState<Tab>(() => {
     const want = props.tab ?? "budget";
@@ -245,6 +246,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
           )}
 
           {tab === "budget" && <BudgetTab token={token} t={t} onNote={onNote} />}
+          {tab === "cashflow" && <CashFlowTab token={token} t={t} onNote={onNote} />}
           {tab === "company" && <CompanyTab token={token} t={t} onNote={onNote} onState={(s) => props.onCompany?.(s)} />}
           {tab === "deals" && <DealsTab token={token} t={t} onNote={onNote} onFile={(f) => { setMade(f); void load(); }} />}
 

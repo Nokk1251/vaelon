@@ -547,6 +547,83 @@ def _spent(rest: str, bg: bool) -> str | None:
             else f"You paid {B.totals_text(t, False)} for {name} in {label} ({n} " + ("payment" if n == 1 else "payments") + ").")
 
 
+# Only the plain request itself (+ a period) is answered here: "cash flow vs profit?", "how is my cash flow
+# calculated?" or "can I afford a house with a salary of ..." are questions for the model (#42 review).
+_CF_PERIOD = (r"(?:\s+(?:for|over|in|during)\s+(?:the\s+)?(?:next\s+|coming\s+)?(?:\d{1,3}\s*(?:days?|weeks?|months?)|"
+              r"(?:a|one|two|three|six)\s+(?:weeks?|months?)|week|month|quarter|weeks|months)|"
+              r"\s+(?:this|next)\s+(?:week|month|quarter))?")
+CASHFLOW_RX = re.compile(r"(?i)" + _PLEASE + r"(?:how(?:'s|\s+is|\s+does|\s+do)\s+(?:my|our|the)\s+cash\s*-?\s*flow"
+                         r"(?:\s+look(?:ing)?)?|(?:show|give)\s+(?:me\s+|us\s+)?(?:my|our|the)\s+cash\s*-?\s*flow"
+                         r"(?:\s+forecast)?|(?:(?:my|our)\s+)?cash\s*-?\s*flow(?:\s+forecast)?)(" + _CF_PERIOD +
+                         r")\s*[?.!]*\s*$")
+AFFORD_RX = re.compile(r"(?i)" + _PLEASE + r"(?:can|could)\s+(?:i|we)\s+(?:still\s+)?afford\s+(.+?)\s*[?.!]*\s*$")
+_AFFORD_WHEN = re.compile(r"(?i)\b(?:right\s+now|now|today|this\s+(?:week|month|quarter)|next\s+(?:week|month|quarter)|"
+                          r"(?:in|within|over)\s+(?:the\s+)?(?:next\s+)?(?:\d{1,3}\s*(?:days?|weeks?|months?)|"
+                          r"(?:a|one|two|three)\s+(?:weeks?|months?)|week|month|quarter))\b")
+_AFFORD_THING = re.compile(r"(?i)^(?:(?:for|on)\s+)?(?:(?:a|an|the|my|our|new)\s+)?(?:[a-z][a-z'-]*\s*){0,3}$")
+_AFFORD_NOT = re.compile(r"(?i)\b(?:salary|earn\w*|income|with|retire\w*|mortgage|loan|invest\w*|if|per|monthly|"
+                         r"yearly|a\s+(?:day|week|month|year)|to|when|without|every|each|daily|weekly|annual\w*|years?|"
+                         r"in|by|until|till|after|before|debt|credit|lease|tonight|tomorrow|later|"
+                         r"jan(?:uary)?|feb(?:ruary)?|march|apr(?:il)?|may|june?|july?|aug(?:ust)?|"
+                         r"sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|"
+                         r"(?:mon|tues?|wed(?:nes)?|thu(?:rs)?|fri|satur|sun)(?:day)?s?|weekends?)\b")
+
+
+def _horizon(text: str, default: int) -> int:
+    t = text.lower()
+    for rx, mul in ((r"(\d{1,3})\s*days?", 1), (r"(\d{1,3})\s*weeks?", 7), (r"(\d{1,3})\s*months?", 30)):
+        m = re.search(rx, t)
+        if m:
+            return max(7, min(366, int(m.group(1)) * mul))
+    words = {"a": 1, "one": 1, "two": 2, "three": 3, "six": 6}
+    m = re.search(r"\b(a|one|two|three|six)\s+(weeks?|months?)", t)
+    if m:
+        return max(7, min(366, words[m.group(1)] * (7 if m.group(2).startswith("week") else 30)))
+    if "quarter" in t:
+        return 90
+    if "week" in t:
+        return 7
+    if "month" in t:
+        return 30
+    return default
+
+
+def _cashflow(request: str, bg: bool) -> str | None:
+    """"how does my cash flow look?", "cash flow for the next 60 days", "can I afford 2000 EUR next month?" (#42).
+    English phrases only: anything else goes to the model, which answers in the user's language."""
+    from . import bills as B, budget as BU, cashflow
+
+    m = CASHFLOW_RX.match(request)
+    if m:
+        return cashflow.text(cashflow.forecast(_horizon(m.group(1) or "", 90)), bg)
+    m = AFFORD_RX.match(request)
+    if not m:
+        return None
+    rest = m.group(1)
+    if not B.AMOUNT_RX.search(rest):
+        return None  # "can I afford 3 days off?" - only an amount WITH a currency is money
+    hit = B.find_amount(rest)
+    if not hit:
+        return None
+    amount, cur, thing = hit
+    when = " ".join(w.group(0) for w in _AFFORD_WHEN.finditer(thing))
+    thing = _AFFORD_WHEN.sub(" ", thing).strip(" ,")
+    if not _AFFORD_THING.match(thing) or _AFFORD_NOT.search(thing):
+        return None  # a bigger question (a salary, a loan, retiring ...): the model answers
+    v = BU.convert(amount, cur, BU.load()["currency"])
+    if v is None:
+        return None  # another currency: the model explains
+    a = cashflow.afford(v, _horizon(when, 30))
+    f = a["forecast"]
+    if not a["known"]:
+        return ("To answer that I need the money you have now - say \"my balance is 2000 EUR\" (or set it in Money > "
+                "Cash flow).\n" + cashflow.text(f, bg))
+    money = B.money(a["lowest_after"], f["currency"], False)
+    head = (f"Yes - after spending it, your lowest balance in the next {f['days']} days would be {money}." if a["ok"]
+            else f"Not safely - after spending it, your balance would drop to {money} in the next {f['days']} days.")
+    return head + "\n" + cashflow.text(f, bg)
+
+
 def _budget(request: str, bg: bool) -> str | None:
     from . import bills as B, budget as BU
     from .security import undo
@@ -797,6 +874,8 @@ def detect(request: str, memory=None, on_event=None, work_only: bool = False) ->
             from . import reminders
 
             ans = reminders.from_request(text, bg)  # "remind me in 10 minutes to ..." - the time is read by code
+        if not ans:
+            ans = _cashflow(text, bg)  # "how does my cash flow look?", "can I afford 2000 EUR next month?"
         if not ans:
             ans = _bills(text, bg)  # "платих тока", "what bills do I have", "добави сметка за ток 45 лв до 25.11"
         if not ans:

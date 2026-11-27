@@ -63,7 +63,7 @@ EGRESS_ARGS = {"web_search": ("query",), "wiki": ("topic",), "learn": ("topic",)
 PRIVATE_TOOLS = {"fs_read", "fs_list", "fs_search", "read_document", "look_at_image", "see_screen", "read_email",
                  "contact_lookup", "recall", "bills_list", "bills_summary", "budget_report", "budget_entries", "deals_list",
                  "agenda", "event_find", "invoices_list", "business_profile", "reminders_list", "scheduled_list",
-                 "ask_folder", "folders_list"}
+                 "ask_folder", "folders_list", "cashflow_forecast"}
 
 
 def _norm(text: str) -> str:

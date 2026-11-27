@@ -59,6 +59,12 @@ def act(data: dict, cfg=None) -> tuple[bool, dict]:
             if not BU.remove(str(data.get("id", ""))):
                 return False, {"ok": False, "error": "no such entry"}
             return done("delete entry")
+        if action == "balance":  # the money on hand, for the cash-flow forecast (empty = remove it)
+            amount = data.get("amount")
+            from . import cashflow
+
+            BU.set_balance(None if amount in (None, "") else cashflow.signed_cents(str(amount)))
+            return done("set balance")
         if action == "limit":
             amount = data.get("amount")
             BU.set_limit(str(data.get("category", "")), None if amount in (None, "") else B.cents(str(amount)))

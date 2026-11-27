@@ -74,6 +74,12 @@ export type FeedbackAnswer = { ok: boolean; error?: string | null; path?: string
 export type SettingsChange = Partial<{ address_as: string; provider: string; model: string; tts_engine: string;
   stt_engine: string; auto_learn: boolean; elevenlabs_monthly_chars: number; setup_done: true; mail_provider: string;
   smtp_host: string; smtp_port: number; imap_host: string; profiles: string[]; update_check: boolean }>;
+/** Cash flow (issue #42): amounts in cents of `currency`; balance null = the user has not given one. */
+export type CashFlow = { currency: string; days: number; today: string; balance: number | null; balance_on: string;
+  weeks: { from: string; to: string; in: number; out: number; net: number; balance: number }[];
+  in_total: number; out_total: number; late_in: number; late_out: number; undated_out: number;
+  possible: { client: string; title: string; close: string; weighted: number; stage: string }[];
+  apart: Record<string, number>; lowest: { balance: number; week: string } | null; short_week: string };
 /** Settings > Your folders: a folder whose documents Vaelon can search (issue #30). */
 export type LibraryFolder = { path: string; files: number; passages: number; skipped: number; skipped_sample: string[];
   hidden: number; unavailable: string; updated: string; added: string };
@@ -226,7 +232,12 @@ export class VaelonApi {
     return this.req("GET", `/budget?month=${encodeURIComponent(month)}`);
   }
 
-  /** add (expense / income) / delete / limit / currency. A record only: nothing moves money. */
+  /** Money > Cash flow: the next `days` days, week by week (issue #42). */
+  cashflow(days = 90): Promise<CashFlow> {
+    return this.req("GET", `/budget?view=cashflow&days=${days}`);
+  }
+
+  /** add (expense / income) / delete / limit / currency / balance. A record only: nothing moves money. */
   budgetAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; warning?: string; text?: string }> {
     return this.ask("/budget", body);
   }

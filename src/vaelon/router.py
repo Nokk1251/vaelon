@@ -39,7 +39,7 @@ GROUP_WORDS = {
     "money": "сметк фактур платих плащане плати дълж разход разходи бюджет наем застраховк данък абонамент "
              "ддс еик похарч харча заплат лимит приход bill bills invoice invoices paid owe owes expense expenses spent "
              "spend budget rent utilit receipt vat income salary limit сделк оферт клиент deal deals pipeline "
-             "proposal client lead извлечение statement bank банк",
+             "proposal client lead извлечение statement bank банк cashflow паричн",
     "library": "папка папката папки документите файловете бележките договор договорите записките "
                "folder folders my documents my files my notes contract contracts library indexed",
     "create": "документ доклад отчет word docx pdf excel xlsx таблица презентация слайд powerpoint pptx аудио подкаст "
@@ -58,6 +58,11 @@ def groups_for(text: str) -> set[str]:
     import re
 
     starts = " " + re.sub(r"[^\w.]+", " ", text.lower())  # " word word"; a group word must start a word
+    starts = re.sub(r" cash flow\b", " cashflow", starts)
+    if re.search(r" (?:can|could) (?:i|we) afford \S*\d", starts):  # "can I afford 2000 EUR" - not "affordable"
+        starts += " cashflow"
+    if re.search(r" (?:мога|можем) ли да (?:си )?позвол\w* \S*\d| balance (?:is|to|of) \S*\d", starts):
+        starts += " cashflow"  # "my balance is 2000 EUR" - not "work-life balance"
     return {g for g, ws in _WORDS.items() if any(" " + w in starts for w in ws)}
 
 

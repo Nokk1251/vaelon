@@ -585,6 +585,14 @@ def make_handler(service: Service, token: str, port: int):
                 from . import budget_api
 
                 q = parse_qs(self.path.partition("?")[2])
+                if q.get("view", [""])[0] == "cashflow":  # Money > Cash flow (issue #42)
+                    from . import cashflow
+
+                    try:
+                        days = int(q.get("days", ["90"])[0])
+                    except ValueError:
+                        days = 90
+                    return self._send(200, cashflow.forecast(days))
                 return self._send(200, budget_api.overview(q.get("month", [""])[0]))
             if route == "/bills":  # bills, invoices and business details, for the app's bills panel
                 from . import bills_api

@@ -365,6 +365,62 @@ def budget_report(ctx, month="", category=""):
     return _bu.report(_bu.month_of(str(month)), _bg(ctx), "" if cat == "other" else cat)
 
 
+@tool("cashflow_forecast", "Cash flow: money in and out over the next days, week by week (unpaid invoices and bills, "
+      "repeating bills, usual income and spending), the balance and a warning when money may run short. With an "
+      "amount: can the user afford it", {"?days": "30, 60 or 90 (default 90; 30 when checking an amount)",
+                                          "?afford": "an amount to check, e.g. '2000 EUR'"},
+      group="money")
+def cashflow_forecast(ctx, days=None, afford=""):
+    from .. import cashflow
+
+    try:
+        n = int(days) if str(days or "").strip() else None
+    except (TypeError, ValueError):
+        n = None
+    if str(afford).strip():
+        import re
+
+        cur_rx = r"(?i)(?<![\w])(" + B._CUR_ALT + r")(?![\w])|[\u20ac$\u00a3]"  # every currency word Vaelon knows
+        word = re.search(cur_rx, str(afford))
+        num = re.sub(cur_rx, "", str(afford)).strip()
+        hit = B.find_amount(str(afford), _bu.load()["currency"])  # also converts leva to euro
+        if hit and re.search(r"(?<!\d)[.,]\d", hit[2]):  # "\u20ac2" read out of "a TV for \u20ac2,000": not the amount
+            hit = None
+        if hit is None:  # "2,000 EUR", "\u20ac2,000", "EUR 1 200,50": the first number, thousands kept
+            chunk = re.search(r"\d[\d\s.,]*\d|\d", num)
+            try:
+                hit = (*B.euro_first(B.cents(chunk.group(0).strip()), B.currency_of(word.group(0)) if word
+                                     else _bu.load()["currency"]), "") if chunk else None
+            except ValueError:
+                hit = None
+        if not hit:
+            raise ValueError("say the amount, e.g. '2000 EUR'")
+        v = _bu.convert(hit[0], hit[1], _bu.load()["currency"])
+        if v is None:
+            return (f"I can only check amounts in {_bu.load()['currency']} (the budget's currency): there is no exact "
+                    f"rate for {hit[1]}.")
+        a = cashflow.afford(v, n or 30)
+        f = a["forecast"]
+        if not a["known"]:
+            return ("I need the current balance first (\"my balance is 2000 EUR\") to tell whether that is affordable.\n"
+                    + cashflow.text(f))
+        verdict = ("Yes" if a["ok"] else "Not safely") + f": after spending it, the lowest balance in the next " \
+                  f"{f['days']} days would be {B.money(a['lowest_after'], f['currency'], False)}."
+        return verdict + "\n" + cashflow.text(f)
+    return cashflow.text(cashflow.forecast(n or 90))
+
+
+@tool("cashflow_balance", "Set the money the user has on hand now (for the cash-flow forecast)",
+      {"amount": "e.g. 2000 or -150 (overdrawn)"}, risk=Risk.REVERSIBLE, group="money")
+def cashflow_balance(ctx, amount):
+    from .. import cashflow
+
+    before = _bu.snapshot()
+    bal = _bu.set_balance(cashflow.signed_cents(str(amount)))
+    _undo_budget("set balance", before)
+    return f"Balance set: {B.money(bal['cents'], _bu.load()['currency'], False)} (as of {bal['on']})."
+
+
 @tool("budget_entries", "List the expenses and income recorded for a month (with ids)", {"?month": "which month"}, group="money")
 def budget_entries(ctx, month=""):
     from .. import company

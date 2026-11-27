@@ -85,6 +85,7 @@ SLASH = [
     ("/calendar", "your calendar: the next two weeks, add or cancel an appointment, export .ics"),
     ("/bills", "bills to pay, paid bills, the invoices you issue and your business details"),
     ("/budget", "this month's income and spending against your limits"),
+    ("/cashflow", "money in and out over the next weeks, and a warning when it may run short"),
     ("/deals", "your sales pipeline: deals by stage, next steps, won and lost"),
     ("/company", "company mode: companies, people and roles, the journal of who changed what"),
     ("vaelon company status | enable | disable", "company mode: people with roles, separate companies, the journal"),
