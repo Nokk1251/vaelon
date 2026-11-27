@@ -299,6 +299,15 @@ crosses 80 % or the limit is pointed out right away. Bills you marked paid count
 (EUR by default). It is a record you keep - Vaelon never moves money. Stored
 encrypted in `~/.vaelon/budget.enc`.
 
+## Cash flow
+Money > Cash flow (or `/cashflow`) shows the next 30, 60 or 90 days week by week: money in from unpaid invoices, money
+out for unpaid bills and the next bills of repeating ones, plus your usual income and spending of the last three months
+(marked as estimates). Type the money you have now and it shows the balance of every week, the lowest point, and a
+warning when the money may run short. Late invoices and bills are counted in the current week; open deals that may
+close are shown apart, weighted by their chance, and never counted. Ask "how does my cash flow look?" or "can I afford
+2000 EUR next month?" - both are answered at once. It only reads what Vaelon already has: no bank connection, nothing
+is paid or moved.
+
 ## Deals
 Money > Deals (or `/deals`) is a small sales pipeline: each deal has a client, a value, a stage (lead, contacted,
 proposal, negotiation, won, lost - with the usual chance of closing, so you see the expected value), an expected

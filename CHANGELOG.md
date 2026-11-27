@@ -2,6 +2,11 @@
 
 ## Unreleased
 ### Added
+- **Cash flow**: Money > Cash flow (or `/cashflow`) shows the next 30, 60 or 90 days week by week - unpaid invoices
+  and bills by due date, the next bills of repeating ones and the usual income and spending of the last three months
+  (estimates) - with the balance you type in, the lowest point and a warning when money may run short. Open deals are
+  shown apart and never counted. "How does my cash flow look?" and "can I afford 2000 EUR next month?" are answered
+  without the model. Read only: nothing is paid and no bank is connected.
 - **Ask your folder**: Settings > Your folders (or `vaelon library add <folder>`) indexes the PDF, Word, Excel,
   PowerPoint, text and Markdown files of a folder into an encrypted index on this computer; Vaelon then answers
   questions from the best passages and names the file. Keyword search, no model download. Document text is outside

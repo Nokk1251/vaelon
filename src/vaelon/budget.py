@@ -81,7 +81,8 @@ def _path() -> Path:
 
 
 def _empty() -> dict:
-    return {"currency": "EUR", "limits": {}, "entries": [], "demo_limits": []}  # demo_limits: set by demo.py only
+    # demo_limits: set by demo.py only; balance: the money on hand the user typed in for the cash-flow forecast
+    return {"currency": "EUR", "limits": {}, "entries": [], "demo_limits": [], "balance": None}
 
 
 def load(strict: bool = False) -> dict:
@@ -148,7 +149,13 @@ def set_currency(cur: str) -> str:
             # 400 EUR would silently become 400 USD: no exact rate exists, so the user sets the limits again
             raise ValueError(f"the limits are in {old} and cannot be converted exactly - remove them first, then set "
                              f"them again in {cur}")
+        bal = data.get("balance")
+        if old != cur and bal and convert(bal["cents"], old, cur) is None:
+            raise ValueError(f"the cash-flow balance is in {old} and cannot be converted exactly - remove it first "
+                             f"(Money > Cash flow), then type it again in {cur}")
         data["limits"] = {k: convert(v, old, cur) for k, v in data["limits"].items()}
+        if bal:
+            data["balance"] = {**bal, "cents": convert(bal["cents"], old, cur)}
         data["currency"] = cur
         return cur
 
@@ -187,6 +194,15 @@ def remove(eid: str) -> dict | None:
         if gone:
             data["entries"].remove(gone)
         return gone
+
+    return _change(go)
+
+
+def set_balance(amount: int | None, on: date | None = None) -> dict | None:
+    """The money on hand now (budget currency, cents) for the cash-flow forecast; None removes it."""
+    def go(data):
+        data["balance"] = None if amount is None else {"cents": int(amount), "on": (on or date.today()).isoformat()}
+        return data["balance"]
 
     return _change(go)
 
@@ -356,5 +372,6 @@ add = _co.guarded(add, "budget.write", "budget entry added",
 remove = _co.guarded(remove, "budget.write", "budget entry removed",
                      lambda r, a, k: f"{r['kind']} {B.money(r['amount'], r['currency'])} {r['note']}" if r else "")
 set_limit = _co.guarded(set_limit, "budget.limits", "limit set", lambda r, a, k: f"{r['category']}: {r['amount']}")
+set_balance = _co.guarded(set_balance, "budget.write", "balance set for the cash-flow forecast")
 set_currency = _co.guarded(set_currency, "budget.limits", "budget currency", lambda r, a, k: r)
 restore_all = _co.guarded(restore_all, "budget.write", "undo", lambda r, a, k: "budget")

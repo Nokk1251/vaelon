@@ -133,6 +133,11 @@ invoice for Acme Ltd: Web design | 1 | 500".
 Open Money > Budget or just say what you spent: "spent 30 EUR on groceries", "spent 12 EUR on coffee". Set a
 limit: "set a budget of 400 EUR for groceries". Ask "how is my budget?" any time. Paid bills are counted by themselves.
 
+## Cash flow
+Money > Cash flow: type the money you have now, pick 30, 60 or 90 days and see each week's money in, money out and
+balance, with a warning when it may run short. Or ask "how does my cash flow look?" or "can I afford 2000 EUR next
+month?".
+
 ## Deals
 Money > Deals: add a deal ("new deal with Acme: website 5000 EUR"), move it along ("move Acme to proposal"), set the
 next step ("follow up with Acme on Friday") and Vaelon reminds you that day. "We won the Acme deal" marks it won; the

@@ -70,11 +70,12 @@ Keys are entered **only** in Settings (or with \`vaelon key set NAME\` in a term
   {
     id: "money",
     title: "Money: bills, invoices, budget, deals",
-    body: `Open it with **¤** or \`/budget\`, \`/bills\`, \`/deals\`. **Vaelon never pays anything and never connects to a bank.** "Paid" only marks a bill.
+    body: `Open it with **¤** or \`/budget\`, \`/cashflow\`, \`/bills\`, \`/deals\`. **Vaelon never pays anything and never connects to a bank.** "Paid" only marks a bill.
 
 - **Bills**: *"Add a bill: electricity 45.20 EUR due 25.11"*, *"I paid the electricity bill"*, *"What bills do I have to pay?"*. Vaelon reminds you a few days before, on the day, and when a bill is late (08:00-22:00 only).
 - **Invoices**: fill in **My business** first (name, ID, VAT, bank). Invoices get an unbroken 10-digit number. They are never deleted: *void* keeps the number.
 - **Budget**: *"Spent 30 EUR on groceries"*, *"Set a budget of 400 EUR for groceries"*, *"How is my budget?"*. A warning comes at 80 % of a limit. Paid bills count by themselves.
+- **Cash flow**: the next 30, 60 or 90 days, week by week: unpaid invoices and bills, the next bills of repeating ones, and your usual income and spending (estimates). Type the money you have now to see each week's balance and a warning when it may run short. *"How does my cash flow look?"*, *"Can I afford 2000 EUR next month?"*. Open deals are shown apart and never counted.
 - **Bank statement**: download the CSV from your online banking and use **Import bank CSV** (you see a preview first). Lines already imported are skipped, and payments that match a bill mark it paid.
 - **Deals**: *"New deal with Acme: website 5000 EUR"*, *"Move Acme to proposal"*, *"We won the Acme deal"*, *"Make the invoice for the Acme deal"*.
 - **Excel**: *"Export my money to Excel"* gives one file with Bills, Invoices, Budget and Deals sheets.
