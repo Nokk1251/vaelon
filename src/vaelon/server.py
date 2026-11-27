@@ -438,7 +438,7 @@ def make_handler(service: Service, token: str, port: int):
                     self._drain()
                 self._send(423, {"error": "Vaelon is locked - sign in", "locked": True})
                 return True
-            allowed = (route.startswith("/job/") or route in ("/bills", "/budget", "/deals", "/company", "/journal", "/jobs",
+            allowed = (route.startswith("/job/") or route in ("/bills", "/budget", "/deals", "/quotes", "/company", "/journal", "/jobs",
                        "/chat", "/stt", "/tts", "/upload", "/approve", "/cancel", "/file", "/open", "/catalog")
                        or (route == "/voice" and not post))  # only what is listed; everything else is the owner's
             if u["role"] != "owner" and (not allowed or (company.workspace() == company.PERSONAL and route != "/company")):
@@ -532,7 +532,7 @@ def make_handler(service: Service, token: str, port: int):
                 if not proof.valid_nonce(n):
                     return self._send(400, {"error": "bad nonce"})
                 return self._send(200, {"proof": proof.proof(token, "vaelon-core", n)})
-            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local", "/update", "/library")):
+            if not (route.startswith(("/job/", "/chats/")) or route in ("/chats", "/calendar", "/bills", "/budget", "/deals", "/quotes", "/company", "/journal") or route in ("/catalog", "/voice", "/jobs", "/notices", "/file", "/settings", "/models", "/ollama/pull", "/models/local", "/update", "/library")):
                 return self._static()
             if not self._authed():
                 return self._send(403 if self._foreign() else 401, {"error": "unauthorized"})
@@ -581,6 +581,10 @@ def make_handler(service: Service, token: str, port: int):
                 from . import deals_api
 
                 return self._send(200, deals_api.overview())
+            if route == "/quotes":  # quotes to clients, for the app's quotes tab (issue #43)
+                from . import quotes_api
+
+                return self._send(200, quotes_api.overview())
             if route == "/budget":  # one month of the budget, for the app's budget tab
                 from . import budget_api
 
@@ -869,6 +873,14 @@ def make_handler(service: Service, token: str, port: int):
                 if origin and not origin.startswith(LOCAL_ORIGINS):
                     return self._send(403, {"error": "only the app itself may change deals"})
                 ok, body = deals_api.act(service.cfg, data)
+                return self._send(200 if ok else 400, body)
+            if self.path == "/quotes":
+                from . import quotes_api
+
+                origin = self.headers.get("Origin", "")
+                if origin and not origin.startswith(LOCAL_ORIGINS):
+                    return self._send(403, {"error": "only the app itself may change quotes"})
+                ok, body = quotes_api.act(service.cfg, data)
                 return self._send(200 if ok else 400, body)
             if self.path == "/budget":
                 from . import budget_api

@@ -88,7 +88,19 @@ def snapshot() -> list[dict]:
 
 
 def restore_all(items: list[dict]) -> None:
+    """Undo: the deals go back to the snapshot - but a deal that has an invoice NOW keeps it (with won and its quote):
+    the invoice is never taken back, and a deal that forgot it could be invoiced a second time."""
     with _lock:
+        # (made-up demo deals and their DEMO- invoices are removed together: "remove the demo data" uses this too)
+        now = {d["id"]: d for d in load(strict=True) if d.get("invoice") and not d.get("demo")}
+        items = json.loads(json.dumps(items))
+        have = set()
+        for d in items:
+            have.add(d["id"])
+            cur = now.get(d["id"])
+            if cur and not d.get("invoice"):
+                d.update({k: cur.get(k, "") for k in ("invoice", "quote", "stage", "won_on")})
+        items += [d for i, d in now.items() if i not in have]
         _store(items)
 
 
@@ -203,6 +215,8 @@ def deal_line(d: dict, bg: bool, ids: bool = True, today: date | None = None) ->
         extra = (f"; следва: {d['next_step'] or 'действие'}{when}" if bg else f"; next: {d['next_step'] or 'follow up'}{when}")
     elif d["stage"] == "lost" and d.get("lost_reason"):
         extra = f" ({d['lost_reason']})"
+    if d.get("quote") and not d.get("invoice"):
+        extra += f"; оферта {d['quote']}" if bg else f"; quote {d['quote']}"
     if d["stage"] == "won" and d.get("invoice"):
         extra += f"; фактура № {d['invoice']}" if bg else f"; invoice no. {d['invoice']}"
     return f"{d['client']}{what}: {value} [{stage_label(d['stage'], bg)}]{extra}" + (f"  [id {d['id']}]" if ids else "")

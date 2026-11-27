@@ -308,6 +308,14 @@ close are shown apart, weighted by their chance, and never counted. Ask "how doe
 2000 EUR next month?" - both are answered at once. It only reads what Vaelon already has: no bank connection, nothing
 is paid or moved.
 
+## Quotes
+Money > Quotes (or `/quotes`) makes a quote for a client: lines, VAT, how long it is valid, a PDF laid out like the
+invoice and titled "Quote". Quotes have their own numbers (Q-000001, Q-000002 ...) that never touch the unbroken invoice
+numbering. Mark a quote sent or declined; Vaelon reminds you a few days before it expires and once when it has. When
+the client accepts, **Accepted** makes the invoice with the same lines in one step (the app asks first) and a linked
+deal moves to won, keeping both numbers. Say "make a quote for Acme: 10 hours of design at 60 EUR" or "what quotes do
+I have?". Stored encrypted in `~/.vaelon/quotes.enc`.
+
 ## Deals
 Money > Deals (or `/deals`) is a small sales pipeline: each deal has a client, a value, a stage (lead, contacted,
 proposal, negotiation, won, lost - with the usual chance of closing, so you see the expected value), an expected

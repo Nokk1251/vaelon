@@ -712,6 +712,25 @@ def set_profile(**fields) -> dict:
     return _change(go)
 
 
+def qty_of(value) -> str:
+    """A quantity as a decimal string, read like money: '1,000' / '1.000' (three digits after one separator) are a
+    thousand, '1,5' / '0,125' are decimals. Raises ValueError."""
+    s = str(value).strip().replace("\u00a0", "").replace(" ", "") or "1"
+    if not re.fullmatch(r"\d+(?:[.,]\d+)*", s):
+        raise ValueError(f"bad quantity '{value}'")
+    sep = "," if "," in s else "." if "." in s else ""
+    if sep:
+        whole, _, frac = s.rpartition(sep)
+        if s.count(sep) > 1 or (len(frac) == 3 and whole.strip("0") != ""):
+            s = s.replace(sep, "")
+        else:
+            s = s.replace(sep, ".")
+    q = Decimal(s)
+    if q <= 0 or q > 10**6:
+        raise ValueError(f"bad quantity '{value}'")
+    return str(q.normalize()) if q != q.to_integral() else str(int(q))
+
+
 def parse_items(text: str, default_qty: str = "1") -> list[dict]:
     """'Web design | 1 | 500' or 'Hosting 12 x 10' or '2 x Consulting 150' or 'Logo - 300' (one per line or ';').
     -> [{"desc", "qty", "price"}] (qty as a decimal string, price in cents)."""
@@ -726,6 +745,9 @@ def parse_items(text: str, default_qty: str = "1") -> list[dict]:
             elif len(cells) == 2:
                 desc, qty, price = cells[0], default_qty, cells[1]
             else:
+                # the price at the end: "Support 1,200" / "Design 1.250,50" have a thousands separator - never "200".
+                # Only that last number is touched (a room "1.101" or a phone number in the description stays as it is)
+                p = re.sub(r"(?<=\d)[,.](?=\d{3}(?:[.,]\d{1,2})?\s*(?:" + _CUR_ALT + r")?\s*$)", "", p, flags=re.I)
                 m = (re.match(r"^(\d+(?:[.,]\d+)?)\s*[x×*]\s*(.+?)\s*[-–:@=]?\s*(?:à|@|по|each|бр\.?)?\s*(" + _NUM + r")\s*(?:" + _CUR_ALT + r")?$", p, re.I)
                      or None)
                 if m:
@@ -739,13 +761,11 @@ def parse_items(text: str, default_qty: str = "1") -> list[dict]:
                         if not m:
                             raise ValueError(f"I could not read the item '{p}'. Use 'description | quantity | price'.")
                         desc, qty, price = m.group(1), default_qty, m.group(2)
-            q = Decimal(str(qty).replace(",", ".").strip() or "1")
-            if q <= 0 or q > 10**6:
-                raise ValueError(f"bad quantity in '{p}'")
+            qty = qty_of(qty)
             desc = re.sub(r"\s+", " ", desc).strip(" -–:=")[:200]
             if not desc:
                 raise ValueError(f"an item needs a description: '{p}'")
-            out.append({"desc": desc, "qty": str(q.normalize()) if q != q.to_integral() else str(int(q)), "price": cents(price)})
+            out.append({"desc": desc, "qty": qty, "price": cents(price)})
         except (InvalidOperation, ValueError) as e:
             raise ValueError(str(e) if str(e) else f"I could not read the item '{p}'")
     if not out:
@@ -866,8 +886,15 @@ _LABELS = {
 }
 
 
-def invoice_pdf(inv: dict, path: Path) -> None:
-    """Write the invoice as an A4 PDF (fpdf2, Unicode fonts so Cyrillic works)."""
+# a quote (quotes.py) uses the same layout: these labels replace the invoice's
+_QUOTE_LABELS = {
+    "bg": {"title": "ОФЕРТА", "due": "Валидна до", "made_by": "Изготвил", "total": "Обща сума", "buyer": "Клиент"},
+    "en": {"title": "QUOTE", "due": "Valid until", "made_by": "Prepared by", "total": "Total", "buyer": "Client"},
+}
+
+
+def invoice_pdf(inv: dict, path: Path, kind: str = "invoice") -> None:
+    """Write the invoice (or, with kind="quote", the quote) as an A4 PDF (fpdf2, Unicode fonts so Cyrillic works)."""
     import logging
 
     logging.getLogger("fontTools").setLevel(logging.ERROR)
@@ -877,7 +904,10 @@ def invoice_pdf(inv: dict, path: Path) -> None:
         raise RuntimeError('PDF files need: pip install "vaelon[docs]"')
     from .tools.create import _pdf_fonts
 
-    L = _LABELS[inv.get("lang", "bg")]
+    L = dict(_LABELS[inv.get("lang", "bg")])
+    quote = kind == "quote"
+    if quote:
+        L.update(_QUOTE_LABELS[inv.get("lang", "bg")])
     bg = inv.get("lang", "bg") == "bg"
     seller, client = inv.get("seller") or {}, inv["client"]
     pdf = FPDF(format="A4")
@@ -900,13 +930,16 @@ def invoice_pdf(inv: dict, path: Path) -> None:
     pdf.set_font(fam, "B", 22)
     pdf.cell(100, 10, fix(L["title"]))
     pdf.set_font(fam, "", 10)
-    pdf.cell(0, 10, fix(L["original"]), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, "" if quote else fix(L["original"]), align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.set_draw_color(255, 122, 31)
     pdf.set_line_width(0.6)
     pdf.line(18, pdf.get_y() + 1, 192, pdf.get_y() + 1)
     pdf.ln(4)
     pdf.set_font(fam, "", 10)
-    for label, value in ((L["number"], inv["number"]), (L["date"], d(inv["issued"])), (L["tax_date"], d(inv["issued"]))):
+    head = [(L["number"], inv["number"]), (L["date"], d(inv["issued"]))]
+    if not quote:
+        head.append((L["tax_date"], d(inv["issued"])))
+    for label, value in head:
         pdf.cell(55, 5.5, fix(label + ":"))
         pdf.set_font(fam, "B", 10)
         pdf.cell(0, 5.5, fix(value), new_x="LMARGIN", new_y="NEXT")
@@ -974,7 +1007,7 @@ def invoice_pdf(inv: dict, path: Path) -> None:
         pdf.set_font(fam, "B" if bold else "", 11 if bold else 9.5)
         pdf.cell(widths[2] + widths[3], 6.5, fix(label + ":"), align="R")
         pdf.cell(widths[4], 6.5, fix(money(value, cur, bg)), align="R", new_x="LMARGIN", new_y="NEXT")
-    if cur == "EUR" and bg and inv["issued"] < "2026-08-09":  # the euro changeover's dual display (until 8 Aug 2026)
+    if cur == "EUR" and bg and inv["issued"] < "2026-08-09" and not quote:  # the euro changeover's dual display (until 8 Aug 2026)
         pdf.set_x(18 + widths[0] + widths[1])
         pdf.set_font(fam, "", 8.5)
         bgn = int((Decimal(total) * BGN_PER_EUR).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -985,12 +1018,12 @@ def invoice_pdf(inv: dict, path: Path) -> None:
     if Decimal(inv["vat_rate"]) == 0:
         pdf.multi_cell(0, 5, fix(L["no_vat"]), new_x="LMARGIN", new_y="NEXT")
     pdf.multi_cell(0, 5, fix(f"{L['due']}: {d(inv['due'])}"), new_x="LMARGIN", new_y="NEXT")
-    if seller.get("bank"):
+    if seller.get("bank") and not quote:
         pdf.multi_cell(0, 5, fix(f"{L['bank']}: {seller['bank']}"), new_x="LMARGIN", new_y="NEXT")
     if inv.get("notes"):
         pdf.ln(2)
         pdf.multi_cell(0, 5, fix(inv["notes"]), new_x="LMARGIN", new_y="NEXT")
-    if inv.get("status") == "void":
+    if inv.get("status") == "void" and not quote:
         pdf.ln(4)
         pdf.set_text_color(200, 40, 40)
         pdf.set_font(fam, "B", 14)

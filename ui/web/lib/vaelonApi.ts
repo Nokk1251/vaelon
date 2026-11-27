@@ -114,6 +114,33 @@ export type Deal = { id: string; client: string; title: string; value: number; c
 export type DealsOverview = { today: string; deals: Deal[]; stages: string[]; chance: Record<string, number>; currencies: string[];
   totals: { open: Record<string, number>; expected: Record<string, number>; won_year: Record<string, number>; won: number;
     lost: number; year: number; count: number } };
+/** A typed amount or quantity read the way the core reads it: "1,200" / "1.250,50" have thousands separators
+ *  (three digits after one separator), "45,20" / "1,5" have decimals. NaN when it is not a number. */
+export function readNumber(text: string): number {
+  let s = text.trim().replace(/[\s\u00a0]/g, ""); // a currency in the field is refused by the core: no preview either
+  if (!/^\d+(?:[.,]\d+)*$/.test(s)) return NaN;
+  if (s.includes(",") && s.includes(".")) {
+    const dec = s.lastIndexOf(",") > s.lastIndexOf(".") ? "," : ".";
+    s = s.split(dec === "," ? "." : ",").join("").replace(dec, ".");
+  } else {
+    const sep = s.includes(",") ? "," : s.includes(".") ? "." : "";
+    if (sep) {
+      const parts = s.split(sep);
+      const whole = parts.slice(0, -1).join("");
+      const frac = parts[parts.length - 1];
+      s = parts.length > 2 || (frac.length === 3 && whole.replace(/0/g, "") !== "") ? parts.join("") : `${whole}.${frac}`;
+    }
+  }
+  return Number(s);
+}
+
+/** A quote to a client (issue #43); status draft / sent / accepted / declined / expired. */
+export type Quote = { id: string; number: string; client: string; issued: string; valid_until: string; status: string;
+  currency: string; net: number; vat: number; total: number; vat_rate: string; file: string; invoice: string; deal: string;
+  deal_label: string; lines: number; sent_on: string; lang: string; may_accept: boolean };
+export type QuotesOverview = { today: string; quotes: Quote[]; next: string; open: Record<string, number>; has_business: boolean;
+  vat_rate: string; currency: string; currencies: string[]; deals: { id: string; label: string; currency: string }[]; may_write: boolean;
+  may_accept: boolean };
 export type Workspace = { id: string; name: string; created: string };
 export type Person = { id: string; name: string; role: string; workspaces: string[] };
 export type CompanyState = { enabled: boolean; user: Person | null; locked: boolean; workspace: Workspace; workspaces: Workspace[];
@@ -250,6 +277,16 @@ export class VaelonApi {
   /** add / update / note / delete / invoice (a won deal). */
   dealsAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; path?: string; kb?: number; text?: string }> {
     return this.ask("/deals", body);
+  }
+
+  /** Money > Quotes (issue #43). */
+  quotes(): Promise<QuotesOverview> {
+    return this.req("GET", "/quotes");
+  }
+
+  /** add / status / delete / accept (accept makes the invoice). */
+  quotesAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; path?: string; kb?: number; number?: string }> {
+    return this.ask("/quotes", body);
   }
 
   /** Company mode: on/off, who is signed in, the open company, what this person may do. */

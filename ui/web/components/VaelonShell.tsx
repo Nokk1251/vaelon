@@ -489,6 +489,7 @@ export default function VaelonShell() {
     else if (["/bills", "/invoices"].includes(c)) setBillsPanel(c === "/bills" ? "due" : "invoices");
     else if (["/budget", "/money"].includes(c)) setBillsPanel("budget");
     else if (c === "/cashflow") setBillsPanel("cashflow");
+    else if (["/quotes", "/quote"].includes(c)) setBillsPanel("quotes");
     else if (["/deals", "/pipeline"].includes(c)) setBillsPanel("deals");
     else if (["/company", "/journal"].includes(c)) setBillsPanel("company");
     else if (c === "/new") void newChat();
