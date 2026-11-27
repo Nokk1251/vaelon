@@ -10,7 +10,7 @@ from . import deals as D
 
 def _deal(d: dict, today: date) -> dict:
     out = {k: d.get(k) for k in ("id", "client", "title", "value", "currency", "stage", "close", "next_step", "next_date",
-                                 "contact", "notes", "won_on", "lost_reason", "invoice", "updated")}
+                                 "contact", "notes", "won_on", "lost_reason", "invoice", "quote", "updated")}
     out["chance"] = D.CHANCE[d["stage"]]
     out["late"] = d["stage"] in D.OPEN and bool(d.get("next_date")) and date.fromisoformat(d["next_date"]) < today
     out["stale"] = (d["stage"] in D.OPEN and not d.get("next_date")

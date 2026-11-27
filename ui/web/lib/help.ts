@@ -70,13 +70,14 @@ Keys are entered **only** in Settings (or with \`vaelon key set NAME\` in a term
   {
     id: "money",
     title: "Money: bills, invoices, budget, deals",
-    body: `Open it with **¤** or \`/budget\`, \`/cashflow\`, \`/bills\`, \`/deals\`. **Vaelon never pays anything and never connects to a bank.** "Paid" only marks a bill.
+    body: `Open it with **¤** or \`/budget\`, \`/cashflow\`, \`/bills\`, \`/deals\`, \`/quotes\`. **Vaelon never pays anything and never connects to a bank.** "Paid" only marks a bill.
 
 - **Bills**: *"Add a bill: electricity 45.20 EUR due 25.11"*, *"I paid the electricity bill"*, *"What bills do I have to pay?"*. Vaelon reminds you a few days before, on the day, and when a bill is late (08:00-22:00 only).
 - **Invoices**: fill in **My business** first (name, ID, VAT, bank). Invoices get an unbroken 10-digit number. They are never deleted: *void* keeps the number.
 - **Budget**: *"Spent 30 EUR on groceries"*, *"Set a budget of 400 EUR for groceries"*, *"How is my budget?"*. A warning comes at 80 % of a limit. Paid bills count by themselves.
 - **Cash flow**: the next 30, 60 or 90 days, week by week: unpaid invoices and bills, the next bills of repeating ones, and your usual income and spending (estimates). Type the money you have now to see each week's balance and a warning when it may run short. *"How does my cash flow look?"*, *"Can I afford 2000 EUR next month?"*. Open deals are shown apart and never counted.
 - **Bank statement**: download the CSV from your online banking and use **Import bank CSV** (you see a preview first). Lines already imported are skipped, and payments that match a bill mark it paid.
+- **Quotes**: *"Make a quote for Acme: 10 hours of design at 60 EUR"*, *"What quotes do I have?"*. Quotes have their own numbers (Q-000001) and never use an invoice number. Mark a quote sent; Vaelon reminds you before it expires. When the client says yes, **Accepted** makes the invoice with the same lines and moves a linked deal to won.
 - **Deals**: *"New deal with Acme: website 5000 EUR"*, *"Move Acme to proposal"*, *"We won the Acme deal"*, *"Make the invoice for the Acme deal"*.
 - **Excel**: *"Export my money to Excel"* gives one file with Bills, Invoices, Budget and Deals sheets.
 - **Demo data**: *"Load demo data"* fills everything with made-up examples. *"Remove the demo data"* deletes only those.
@@ -106,10 +107,10 @@ Amounts are kept in euro by default; the budget can use another currency.`,
 | Role | May |
 |---|---|
 | Owner | everything |
-| Accountant | bills, invoices, budget, bank import, Excel, journal; sees deals |
-| Sales | deals; sees invoices |
+| Accountant | bills, invoices, quotes, budget, bank import, Excel, journal; sees deals |
+| Sales | deals and quotes; sees invoices (accepting a quote, which makes the invoice, is for the owner or accountant) |
 | Member | records expenses and income |
-| Viewer | only looks |
+| Viewer | only looks (bills, invoices, quotes, budget, deals) |
 
 - **Lock**: the button next to the company name. A locked Vaelon answers nothing until someone signs in with their PIN. Five wrong PINs lock sign-in for 1 minute, then 2, 4, 8... up to an hour.
 - People who are not the owner never reach your memory, chats, calendar, files, mail, settings or keys. Their requests run in a work mode with only the money and lookup tools.

@@ -331,6 +331,12 @@ def watch(poll_seconds: float = 5.0) -> None:
                         deals.fire_due()
                     except Exception:
                         pass
+                    try:  # quotes: a few days before they expire, and once when they have
+                        from . import quotes
+
+                        quotes.fire_due()
+                    except Exception:
+                        pass
             time.sleep(poll_seconds)
 
     threading.Thread(target=loop, daemon=True, name="vaelon-reminders").start()

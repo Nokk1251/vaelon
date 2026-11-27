@@ -138,6 +138,10 @@ Money > Cash flow: type the money you have now, pick 30, 60 or 90 days and see e
 balance, with a warning when it may run short. Or ask "how does my cash flow look?" or "can I afford 2000 EUR next
 month?".
 
+## Quotes
+Money > Quotes: fill in the client and the lines and press **Make the quote** (or say "make a quote for Acme: 10 hours
+of design at 60 EUR"). Mark it sent; when the client says yes, **Accepted** makes the invoice with the same lines.
+
 ## Deals
 Money > Deals: add a deal ("new deal with Acme: website 5000 EUR"), move it along ("move Acme to proposal"), set the
 next step ("follow up with Acme on Friday") and Vaelon reminds you that day. "We won the Acme deal" marks it won; the

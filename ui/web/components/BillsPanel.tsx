@@ -1,19 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { VaelonApi, type Bill, type BillsOverview, type CompanyState, type Invoice, type MadeFile } from "@/lib/vaelonApi";
+import { VaelonApi, readNumber, type Bill, type BillsOverview, type CompanyState, type Invoice, type MadeFile } from "@/lib/vaelonApi";
 import { STRINGS, type Lang } from "@/lib/i18n";
 import FileCard from "./FileCard";
 import BudgetTab from "./BudgetTab";
 import DealsTab from "./DealsTab";
 import CashFlowTab from "./CashFlowTab";
+import QuotesTab from "./QuotesTab";
 import CompanyTab from "./CompanyTab";
 
-export type MoneyTab = "budget" | "cashflow" | "due" | "paid" | "deals" | "invoices" | "business" | "company";
+export type MoneyTab = "budget" | "cashflow" | "due" | "paid" | "deals" | "quotes" | "invoices" | "business" | "company";
 type Tab = MoneyTab;
-const TABS: Tab[] = ["budget", "cashflow", "due", "paid", "deals", "invoices", "business", "company"];
+const TABS: Tab[] = ["budget", "cashflow", "due", "paid", "deals", "quotes", "invoices", "business", "company"];
 // company mode: a tab shows only when the role may read it
-const NEEDS: Record<Tab, string> = { budget: "budget.read", cashflow: "bills.read,invoices.read,budget.read", due: "bills.read", paid: "bills.read", deals: "deals.read",
+const NEEDS: Record<Tab, string> = { budget: "budget.read", cashflow: "bills.read,invoices.read,budget.read", due: "bills.read", paid: "bills.read", deals: "deals.read", quotes: "quotes.read",
   invoices: "invoices.read", business: "profile.write", company: "" };
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -137,7 +138,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
   };
   // the category, unless it says nothing new ("other", or "Rent" filed under rent)
   const cat = (b: Bill) => (b.category === "other" || b.vendor.toLowerCase().includes(b.category.split(" ")[0]) ? "" : b.category);
-  const lineTotal = lines.reduce((s, l) => s + (parseFloat(l.price.replace(",", ".")) || 0) * (parseFloat(l.qty.replace(",", ".")) || 0), 0);
+  const lineTotal = lines.reduce((s, l) => s + (readNumber(l.price) || 0) * (readNumber(l.qty) || 0), 0); // as the core reads them
   const vatShown = inv.vat !== "" ? inv.vat : me.vat_rate || (me.vat_id ? "20" : "0");
 
   const billRow = (b: Bill) => (
@@ -238,7 +239,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
           ))}
         </nav>
         <div className="panel-body">
-          {!data && !["budget", "deals", "company"].includes(tab) && <p className="muted scan">{t.loading}</p>}
+          {!data && !["budget", "cashflow", "deals", "quotes", "company"].includes(tab) && <p className="muted scan">{t.loading}</p>}
           {made && (
             <div className="billmade">
               <FileCard file={made} token={token} t={t} onNote={onNote} />
@@ -249,6 +250,9 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
           {tab === "cashflow" && <CashFlowTab token={token} t={t} onNote={onNote} />}
           {tab === "company" && <CompanyTab token={token} t={t} onNote={onNote} onState={(s) => props.onCompany?.(s)} />}
           {tab === "deals" && <DealsTab token={token} t={t} onNote={onNote} onFile={(f) => { setMade(f); void load(); }} />}
+          {tab === "quotes" && (
+            <QuotesTab token={token} t={t} onNote={onNote} onFile={(f) => { setMade(f); void load(); }} onBusiness={() => setTab("business")} />
+          )}
 
           {data && tab === "due" && (
             <>
@@ -365,7 +369,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
                   </div>
                   <div className="calrow">
                     <p className="billtotal grow">
-                      {t.invTotal}: <b>{money(Math.round(lineTotal * (1 + (parseFloat(vatShown.replace(",", ".")) || 0) / 100) * 100), inv.currency || me.currency || "EUR")}</b>
+                      {t.invTotal}: <b>{money(Math.round(lineTotal * (1 + (readNumber(vatShown) || 0) / 100) * 100), inv.currency || me.currency || "EUR")}</b>
                       <span className="muted small"> · {t.invNext} {data.next}</span>
                     </p>
                     <button type="submit" className="btn" disabled={busy || !client.name.trim() || !lines.some((l) => l.desc.trim() && l.price.trim())}>

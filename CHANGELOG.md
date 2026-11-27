@@ -2,6 +2,12 @@
 
 ## Unreleased
 ### Added
+- **Quotes**: Money > Quotes (or `/quotes`) makes quotes for clients as PDFs with their own numbers (Q-000001 ...)
+  that never touch the invoice numbering. Draft, sent, declined and expired states, a reminder before a quote expires,
+  and **Accepted** turns a quote into an invoice with the same lines in one step (asked first); a linked deal moves to
+  won and keeps both numbers. "Make a quote for Acme: 10 hours of design at 60 EUR" and "what quotes do I have?" work
+  by voice or text. In company mode quotes have their own rights: owner, accountant and sales make them, viewers see
+  them, and accepting needs the right to issue invoices too.
 - **Cash flow**: Money > Cash flow (or `/cashflow`) shows the next 30, 60 or 90 days week by week - unpaid invoices
   and bills by due date, the next bills of repeating ones and the usual income and spending of the last three months
   (estimates) - with the balance you type in, the lowest point and a warning when money may run short. Open deals are

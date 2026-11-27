@@ -234,7 +234,7 @@ def make_invoice(ctx, client: dict, items: list[dict], vat_rate=None, due_days=1
 
         msg = _save(ctx, f"Invoice {inv['number']} {client.get('name', '')}", ".pdf", write)
     except Exception:
-        B.restore_all(before)  # no PDF -> the number is not used up
+        B.restore_all(before)  # the bills go back; the invoice itself stays (a number is never taken back) - void it
         raise
     B.update_invoice(inv["id"], file=holder.get("path", ""))
     inv["file"] = holder.get("path", "")
@@ -554,6 +554,180 @@ def deal_invoice(ctx, deal):
     inv, msg = make_invoice(ctx, {"name": d["client"]}, _dl.invoice_items(d), None, 14, d["currency"])
     _dl.update(d["id"], invoice=inv["number"], note=f"invoice {inv['number']}")
     return f"invoice no. {inv['number']} for {d['client']}: {B.money(B.invoice_totals(inv)[2], inv['currency'])}. {msg}"
+
+
+# ---------------------------------------------------------------- quotes (issue #43)
+from .. import quotes as _q  # noqa: E402
+
+
+import threading as _threading  # noqa: E402
+
+_accept_lock = _threading.Lock()  # one accept at a time: a double click or two tasks never make two invoices
+
+
+def _quote(key: str) -> dict:
+    return _q.find(str(key).strip())
+
+
+def _accept_card(a: dict) -> str:
+    """The approval card names the quote, its client, total and lines - not only the words the model used."""
+    try:
+        q = _quote(a.get("quote", ""))
+        made = _q.invoice_of(q)
+        then = (f"links invoice no. {made['number']}, made by an earlier try" if made
+                else f"this issues INVOICE no. {int(B.load().get('next') or 1):010d}")
+        return (f"ACCEPT {q['number']} {q['client']['name']} - {B.money(_q.totals(q)[2], q['currency'])}, "
+                f"{len(q['items'])} line(s): {then}")
+    except Exception as e:
+        return f"ACCEPT quote {a.get('quote')} ({e})"
+
+
+def _undo_quotes(label: str, before: dict) -> None:
+    from ..security import undo
+
+    undo.push(label, lambda: _q.restore_all(before))
+
+
+def make_quote(ctx, client: dict, items: list[dict], vat_rate=None, valid_days=30, currency="", notes="", lang="",
+               deal: str = "") -> tuple[dict, str]:
+    """Number + store + PDF (+ link the deal). Returns (quote, the _save message)."""
+    from .. import company
+    from .create import _save
+
+    d = None
+    if str(deal or "").strip():
+        d = _deal(deal)
+        if not client.get("name"):
+            client = {**client, "name": d["client"]}
+    before = _q.snapshot()
+    q = _q.new_quote(client, items, vat_rate, valid_days, currency or (d["currency"] if d else ""), notes,
+                     lang or ("bg" if _bg(ctx) else "en"), d["id"] if d else "")
+    try:
+        holder = {}
+
+        def write(path):
+            _q.quote_pdf(q, path)
+            holder["path"] = str(path)
+
+        msg = _save(ctx, f"Quote {q['number']} {q['client']['name']}", ".pdf", write)
+    except Exception:
+        _q.restore_all(before)
+        raise
+    _q.set_file(q["id"], holder.get("path", ""))
+    q["file"] = holder.get("path", "")
+    _undo_quotes(f"quote {q['number']}", before)
+    if d and company.can("deals.write"):  # the deal shows the quote; a deal still early moves to "proposal"
+        try:
+            dbefore = _dl.snapshot()
+            ch = {"quote": q["number"], "note": f"quote {q['number']}"}
+            if d["stage"] in ("lead", "contacted"):
+                ch["stage"] = "proposal"
+            _dl.update(d["id"], **ch)
+            _undo_deals(f"deal {d['client']}: quote", dbefore)
+        except Exception as e:  # the quote exists: say so instead of an error that invites making it again
+            msg += f" (The quote is made, but the deal could not be updated: {e}.)"
+    return q, msg
+
+
+def accept_quote(ctx, key: str) -> tuple[dict, dict, str]:
+    """Accepted: an invoice with the same lines (the next number of the unbroken series), the quote points to it, and
+    a linked deal moves to won with both numbers. Every check runs BEFORE the invoice number is used."""
+    with _accept_lock:
+        q = _quote(key)  # read again under the lock
+        made = _q.invoice_of(q)  # an earlier accept that stopped half way: finish it, never a second invoice
+        _q.check_accept(q, made)
+        if made:
+            inv, msg = made, f"invoice no. {made['number']} was already made from this quote - now linked."
+            if not made.get("file"):  # its PDF failed then: make it now
+                from .create import _save
+
+                holder = {}
+
+                def write(p):
+                    B.invoice_pdf(made, p)
+                    holder["path"] = str(p)
+
+                msg = _save(ctx, f"Invoice {made['number']} {made['client'].get('name', '')}", ".pdf", write)
+                B.update_invoice(made["id"], file=holder.get("path", ""))
+                inv = {**made, "file": holder.get("path", "")}
+        else:
+            inv, msg = make_invoice(ctx, q["client"], q["items"], q["vat_rate"], 14, q["currency"],
+                                    (f"Quote {q['number']}. " + q.get("notes", "")).strip(), q["lang"])
+        try:
+            B.update_invoice(inv["id"], quote=q["id"])
+            _q.mark_accepted(q["id"], inv["number"])
+            if q.get("deal") and _dl.get(q["deal"]):
+                d = _dl.get(q["deal"])
+                _dl.update(d["id"], stage="won", invoice=inv["number"], quote=q["number"],
+                           note=f"quote {q['number']} accepted - invoice {inv['number']}")
+        except Exception as e:
+            raise RuntimeError(f"invoice no. {inv['number']} was made, but linking it to quote {q['number']} failed ({e}). "
+                               "Accept the quote again to finish - no second invoice is made.")
+    return _q.get(q["id"]), inv, msg
+
+
+@tool("quote_create", "Make a quote (offer) for a client as a PDF, numbered Q-000001... (never touches the invoice "
+      "numbers). Items: one per line or separated by ';', e.g. '10 hours of design at 60', 'Design | 10 | 60', "
+      "'Hosting 120'. It can be linked to a deal.",
+      {"client": "client's name (empty = the deal's client)", "items": "the lines", "?client_address": "address",
+       "?client_company_id": "company number", "?client_vat_id": "VAT number", "?vat_rate": "percent",
+       "?valid_days": "how long it is valid (default 30)", "?currency": "EUR (default), USD, GBP, CHF",
+       "?notes": "a note printed on it", "?language": "en or bg", "?deal": "a deal's id or client"},
+      risk=Risk.REVERSIBLE, group="money")
+def quote_create(ctx, client="", items="", client_address="", client_company_id="", client_vat_id="", vat_rate="",
+                 valid_days="30", currency="", notes="", language="", deal=""):
+    rows, cur = _q.items_from(str(items))
+    if currency and cur and str(currency).upper().strip() != cur:  # "100 лв" became euro; "1,200 USD" is dollars
+        raise ValueError(f"the lines are in {cur}, not {str(currency).upper()} - say one currency")
+    days = int(str(valid_days).strip()) if str(valid_days).strip().isdigit() else 30
+    q, msg = make_quote(ctx, {"name": client, "address": client_address, "company_id": client_company_id,
+                              "vat_id": client_vat_id}, rows, vat_rate or None, days, currency or cur, notes,
+                        "en" if str(language).lower().startswith("en") else "bg" if str(language).lower().startswith("bg") else "",
+                        deal)
+    net, vat, total = _q.totals(q)
+    return (f"quote {q['number']} for {q['client']['name']}: {B.money(total, q['currency'])} (net "
+            f"{B.money(net, q['currency'])}, VAT {q['vat_rate']} %), valid until {q['valid_until']}. It is a draft: "
+            f"mark it sent when it goes to the client. {msg}")
+
+
+@tool("quotes_list", "List the quotes: open ones (draft / sent) first, with their state and validity",
+      {"?status": "draft / sent / accepted / declined / expired (empty = all)"}, group="money")
+def quotes_list(ctx, status=""):
+    from .. import company
+
+    company.require("quotes.read")
+    st = str(status or "").lower().strip()
+    return _q.list_text(status=st if st in _q.STATES else "")
+
+
+@tool("quote_status", "Mark a quote sent, declined or back to draft (accepting it is quote_accept)",
+      {"quote": "the quote's number, id or client", "status": "sent / declined / draft"}, risk=Risk.REVERSIBLE,
+      group="money")
+def quote_status(ctx, quote, status):
+    q = _quote(quote)
+    before = _q.snapshot()
+    out = _q.set_status(q["id"], str(status).lower().strip())
+    _undo_quotes(f"quote {q['number']} {out['status']}", before)
+    return f"quote {out['number']} is now {out['status']}"
+
+
+@tool("quote_accept", "The client accepted a quote: make the invoice with the same lines (numbered in the invoice "
+      "series) and move a linked deal to won", {"quote": "the quote's number, id or client"}, risk=Risk.DANGEROUS,
+      group="money", summary=_accept_card)
+def quote_accept(ctx, quote):
+    q, inv, msg = accept_quote(ctx, quote)
+    return (f"quote {q['number']} accepted: invoice no. {inv['number']} for {inv['client']['name']}, "
+            f"{B.money(B.invoice_totals(inv)[2], inv['currency'])}, due {inv['due']}. {msg}")
+
+
+@tool("quote_delete", "Delete a quote made by mistake (an accepted one stays)", {"quote": "the quote's number or id"},
+      risk=Risk.REVERSIBLE, group="money", summary=lambda a: f"DELETE quote {a.get('quote')}")
+def quote_delete(ctx, quote):
+    q = _quote(quote)
+    before = _q.snapshot()
+    _q.remove(q["id"])
+    _undo_quotes(f"delete quote {q['number']}", before)
+    return f"deleted quote {q['number']}"
 
 
 @tool("deal_delete", "Remove a deal entered by mistake (a lost deal should be marked lost instead)", {"deal": "id"},

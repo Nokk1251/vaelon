@@ -624,6 +624,33 @@ def _cashflow(request: str, bg: bool) -> str | None:
     return head + "\n" + cashflow.text(f, bg)
 
 
+# ---------------------------------------------------------------- quotes (vaelon/quotes.py, issue #43)
+
+QUOTES_LIST_RX = re.compile(r"(?i)" + _PLEASE + r"(?:(?:show|list)(?:\s+me)?\s+(?:my|all\s+my|my\s+open|open|sent)\s+"
+                            r"(?:quotes|quotations)|what\s+(?:quotes|quotations)\s+(?:do\s+i\s+have(?:\s+open)?|are\s+"
+                            r"(?:open|out(?:standing)?|pending))|(?:my|open|my\s+open)\s+(?:quotes|quotations))\s*[?.!]*\s*$")
+QUOTE_MAKE_RX = re.compile(r"(?is)" + _PLEASE + r"(?:make|create|write|prepare|draft|do)\s+(?:me\s+)?(?:a\s+|an\s+)?"
+                           r"(?:new\s+)?(?:quote|quotation)\s+(?:for|to)\s+([^:\n]{1,80}?)\s*:\s*(.{3,})$")
+
+
+def _quotes(request: str) -> "str | Hit | None":
+    """"what quotes do I have?" -> the list; "make a quote for Acme: 10 hours of design at 60 EUR" -> the quote_create
+    tool runs with the lines read by code (a numbered PDF is made, so it goes through the tool and its rules)."""
+    from . import company, quotes
+
+    if QUOTES_LIST_RX.match(request):
+        company.require("quotes.read")
+        return quotes.list_text(ids=False)
+    m = QUOTE_MAKE_RX.match(request)
+    if not m or asks(request):
+        return None
+    try:
+        quotes.items_from(m.group(2))
+    except ValueError:
+        return None  # lines it cannot read: the model asks or works them out
+    return Hit(tool="quote_create", args={"client": m.group(1).strip(" ,.-"), "items": m.group(2).strip()})
+
+
 def _budget(request: str, bg: bool) -> str | None:
     from . import bills as B, budget as BU
     from .security import undo
@@ -876,6 +903,10 @@ def detect(request: str, memory=None, on_event=None, work_only: bool = False) ->
             ans = reminders.from_request(text, bg)  # "remind me in 10 minutes to ..." - the time is read by code
         if not ans:
             ans = _cashflow(text, bg)  # "how does my cash flow look?", "can I afford 2000 EUR next month?"
+        if not ans:
+            ans = _quotes(text)  # "what quotes do I have?", "make a quote for Acme: 10 hours of design at 60 EUR"
+            if isinstance(ans, Hit):
+                return ans
         if not ans:
             ans = _bills(text, bg)  # "платих тока", "what bills do I have", "добави сметка за ток 45 лв до 25.11"
         if not ans:
