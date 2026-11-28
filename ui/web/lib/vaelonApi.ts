@@ -141,6 +141,20 @@ export type Quote = { id: string; number: string; client: string; issued: string
 export type QuotesOverview = { today: string; quotes: Quote[]; next: string; open: Record<string, number>; has_business: boolean;
   vat_rate: string; currency: string; currencies: string[]; deals: { id: string; label: string; currency: string }[]; may_write: boolean;
   may_accept: boolean };
+/** A recurring invoice plan (issue #44): made on its day, never sent. */
+export type RecurringPlan = { id: string; client: string; email: string; every: "monthly" | "quarterly" | "yearly"; day: number;
+  next: string; active: boolean; currency: string; net: number; vat: number; total: number; vat_rate: string; lines: number;
+  due_days: number; made: string[]; error: string; lang: string; notes: string };
+export type RecurringOverview = { today: string; plans: RecurringPlan[]; has_business: boolean; vat_rate: string; currency: string;
+  currencies: string[]; may_write: boolean };
+/** A payment reminder DRAFT for an overdue invoice (issue #44): sent only when the user says so. */
+export type PayReminder = { id: string; invoice: string; number: string; client: string; stage: 1 | 2; to: string; subject: string;
+  body: string; made: string; edited: boolean; total: number; currency: string; due: string; late: number; demo: boolean };
+export type PayRemindersOverview = { today: string; settings: { on: boolean; first: number; second: number }; drafts: PayReminder[];
+  sent: { id: string; number: string; client: string; to: string; sent_on: string; stage: number }[];
+  overdue: { id: string; number: string; client: string; due: string; late: number; total: number; currency: string;
+    reminded: string; stage: number; sent_stage: number }[];
+  mail_ready: boolean; may_write: boolean; may_send: boolean };
 export type Workspace = { id: string; name: string; created: string };
 export type Person = { id: string; name: string; role: string; workspaces: string[] };
 export type CompanyState = { enabled: boolean; user: Person | null; locked: boolean; workspace: Workspace; workspaces: Workspace[];
@@ -287,6 +301,26 @@ export class VaelonApi {
   /** add / status / delete / accept (accept makes the invoice). */
   quotesAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; path?: string; kb?: number; number?: string }> {
     return this.ask("/quotes", body);
+  }
+
+  /** Money > Recurring (issue #44). */
+  recurring(): Promise<RecurringOverview> {
+    return this.req("GET", "/recurring");
+  }
+
+  /** add / pause / resume / delete / run (make the invoices that are due now - never sent). */
+  recurringAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; said?: string[] }> {
+    return this.ask("/recurring", body);
+  }
+
+  /** Money > Reminders (issue #44). */
+  payReminders(): Promise<PayRemindersOverview> {
+    return this.req("GET", "/payment-reminders");
+  }
+
+  /** settings / draft / edit / dismiss / send (send carries exactly what the user was shown). */
+  payRemindersAct(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string | null; to?: string; number?: string }> {
+    return this.ask("/payment-reminders", body);
   }
 
   /** Company mode: on/off, who is signed in, the open company, what this person may do. */

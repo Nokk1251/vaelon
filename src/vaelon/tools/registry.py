@@ -63,7 +63,8 @@ EGRESS_ARGS = {"web_search": ("query",), "wiki": ("topic",), "learn": ("topic",)
 PRIVATE_TOOLS = {"fs_read", "fs_list", "fs_search", "read_document", "look_at_image", "see_screen", "read_email",
                  "contact_lookup", "recall", "bills_list", "bills_summary", "budget_report", "budget_entries", "deals_list",
                  "agenda", "event_find", "invoices_list", "business_profile", "reminders_list", "scheduled_list",
-                 "ask_folder", "folders_list", "cashflow_forecast", "quotes_list"}
+                 "ask_folder", "folders_list", "cashflow_forecast", "quotes_list",
+                 "recurring_list", "payment_reminders", "payment_reminder_draft"}
 
 
 def _norm(text: str) -> str:
@@ -144,10 +145,14 @@ def _leaks_private(ctx, name: str, args: dict) -> str:
 
 # After outside content entered a task (a web page, an e-mail, a file), injected text may steer the model:
 # - these change what Vaelon remembers or take back the user's own actions: approval first;
-TAINT_ASK = {"remember", "forget", "undo", "learn_skill", "forget_skill", "delegate"}
+TAINT_ASK = {"remember", "forget", "undo", "learn_skill", "forget_skill", "delegate",
+             # money that cannot be taken back or that changes who gets paid: issued invoices (the unbroken series),
+             # recurring plans that issue them by themselves, the bank details printed on them
+             "business_profile", "invoice_create", "deal_won", "deal_invoice", "recurring_add", "recurring_change"}
 # never covered by cfg.auto_approve (a changed config.json must not let them run unseen, not even in a scheduled task)
 NEVER_AUTO = {"run_command", "self_modify", "self_rollback", "extension_enable", "create_tool", "fs_delete_permanent",
-              "send_email", "send_sms", "make_call", "kill_process", "open_app", "download_file", "folder_add"}
+              "send_email", "send_sms", "make_call", "kill_process", "open_app", "download_file", "folder_add",
+              "payment_reminder_send", "recurring_add"}
 # - these send a URL out: one the model made up (e.g. "https://evil/?d=<your file>") needs approval; a URL the user
 #   wrote or that came in a result of this task (a search hit, a link on a page) does not.
 EGRESS = {"web_fetch": "url", "learn": "url", "download_file": "url", "check_url": "url"}
@@ -164,6 +169,19 @@ def note_urls(ctx, text: str, private: bool = False) -> None:
     seen = ctx.extra.setdefault("private_urls" if private else "seen_urls", set())
     for u in URL_RX.findall(str(text))[:400]:
         seen.add(u.rstrip(".,;:!?"))
+
+
+def marked_shown(ctx, records) -> None:
+    """Records written after outside content carry src="chat-outside" (deals, quotes, plans, contacts, invoices made
+    from them). Showing them to the model again is outside content: the task is tainted. Unlike outside_shown, a
+    record's own PDF path ("file") does not count."""
+    if any(isinstance(r, dict) and r.get("src") for r in records):
+        ctx.tainted = True
+
+
+# reads of money tools that need no card even after outside content (they change nothing)
+_READS = {"business_profile": lambda a: not any(str(v).strip() for v in a.values()),
+          "bank_import": lambda a: str(a.get("preview", "")).strip().lower() in ("yes", "y", "true", "да", "1")}
 
 
 def outside_shown(ctx, records) -> None:
@@ -303,7 +321,13 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
                    and not _in_request(ctx, name, args) and ctx.extra.get("egress_n", 0) >= EGRESS_FREE)
     if over_budget:
         needs_confirm = True
-    if ((ctx.tainted or echo) and name in TAINT_ASK) or made_up:
+    # money and contacts written after outside content: a planted text must never reach an invoice, a deal, a plan
+    # or a client's address unseen (the red / white-hat rounds of issue #44)
+    money_write = (ctx.tainted or echo) and t.risk >= Risk.REVERSIBLE and (
+        t.group == "money" or name in ("contact_save", "contact_delete")) and not (
+        name in _READS and _READS[name](args))
+    reading = name in _READS and _READS[name](args)
+    if ((ctx.tainted or echo) and name in TAINT_ASK and not reading) or made_up or money_write:
         needs_confirm = True
     leak = _leaks_private(ctx, name, args) if watch else ""
     if leak:
@@ -315,7 +339,8 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
         except Exception:
             escalated = True  # cannot tell: ask
     needs_confirm = needs_confirm or escalated
-    forced = escalated or bool(leak) or made_up or over_budget or ((ctx.tainted or echo) and name in TAINT_ASK)
+    forced = (escalated or bool(leak) or made_up or over_budget
+              or ((ctx.tainted or echo) and name in TAINT_ASK and not reading) or money_write)
     if needs_confirm and name in ctx.cfg.auto_approve and not ctx.tainted and not forced and name not in NEVER_AUTO:
         needs_confirm = False
     if needs_confirm and name == "see_screen" and ctx.extra.get("screen_ok") and not ctx.tainted:
@@ -351,6 +376,7 @@ def execute(ctx: Ctx, name: str, args: dict) -> str:
                 notes.append("this command makes something start by itself later")
         if leak:
             notes.append(f"this sends text from your {leak} to an outside service")
+        ctx.extra["card"] = desc  # what the user is shown for THIS call: a tool may check it is still what it does
         ok = ctx.approver(ConfirmRequest(name, text, ctx.tainted, "; ".join(notes)))
         audit.log("confirm", tool=name, approved=ok, summary=desc)
         if not ok:

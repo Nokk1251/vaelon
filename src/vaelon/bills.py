@@ -781,8 +781,11 @@ def invoice_totals(inv: dict) -> tuple[int, int, int]:
 
 
 def new_invoice(client: dict, items: list[dict], vat_rate: str | None = None, due_days: int = 14,
-                currency: str = "", notes: str = "", lang: str = "bg", issued: date | None = None) -> dict:
-    """Number and store a new invoice (the PDF is made by `invoice_pdf`). Needs the seller's name first."""
+                currency: str = "", notes: str = "", lang: str = "bg", issued: date | None = None,
+                link: dict | None = None) -> dict:
+    """Number and store a new invoice (the PDF is made by `invoice_pdf`). Needs the seller's name first.
+    `link` ({"recurring": plan id, "period": date}) is stored WITH the number, in the same write: an invoice made by a
+    plan can always be found again, so a retry never makes a second one."""
     client = {k: re.sub(r"\s+", " ", str(client.get(k, ""))).strip()[:PROFILE_FIELDS.get(k, 200)]
               for k in ("name", "address", "company_id", "vat_id", "person", "email")}
     if not client["name"]:
@@ -790,6 +793,11 @@ def new_invoice(client: dict, items: list[dict], vat_rate: str | None = None, du
     issued = issued or date.today()
 
     def go(data):
+        if link and link.get("recurring"):  # made already (a stop half way, a second run): that one, never a second
+            hit = next((i for i in data["invoices"] if i.get("recurring") == str(link["recurring"])[:40]
+                        and i.get("period") == str(link.get("period", ""))[:40]), None)
+            if hit:
+                return {**hit, "existing": True}
         me = data["me"]
         if not me.get("name"):
             raise ValueError("first fill in your business details (Bills > My business, or say: my business is called ...)")
@@ -804,11 +812,16 @@ def new_invoice(client: dict, items: list[dict], vat_rate: str | None = None, du
         n = int(data.get("next") or 1)
         while f"{n:010d}" in used:
             n += 1
+        if n >= 10**10:
+            raise ValueError("the invoice numbering is full (10 digits) - no invoice was made")
         inv = {"id": uuid.uuid4().hex[:6], "number": f"{n:010d}", "client": client, "items": items,
                "vat_rate": str(rate_d.normalize()) if rate_d != rate_d.to_integral() else str(int(rate_d)),
                "currency": cur, "issued": issued.isoformat(), "due": (issued + timedelta(days=max(0, int(due_days)))).isoformat(),
                "status": "unpaid", "paid_on": "", "notes": str(notes).strip()[:500], "lang": "en" if lang == "en" else "bg",
                "seller": dict(me), "file": ""}
+        for k, v in (link or {}).items():
+            if k in ("recurring", "period", "src"):
+                inv[k] = str(v)[:40]
         data["invoices"].append(inv)
         data["next"] = n + 1
         return inv

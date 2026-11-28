@@ -138,6 +138,16 @@ Money > Cash flow: type the money you have now, pick 30, 60 or 90 days and see e
 balance, with a warning when it may run short. Or ask "how does my cash flow look?" or "can I afford 2000 EUR next
 month?".
 
+## Recurring invoices and payment reminders
+Money > Recurring: fill in the client, the lines, how often and the day, and press **Set up**. On that day Vaelon makes
+the invoice (with its PDF) in your normal numbering and tells you - it never sends it, so open it, check it and send it
+yourself. **Pause** stops a plan for a while; the paused time is never invoiced afterwards.
+
+Money > Reminders: when an invoice is overdue, a reminder for the client waits here as a draft - first a friendly one,
+later a firmer one (the days are set at the top of the tab). Check the text, add the client's email if it is missing,
+and press **Send…** - you are asked once more before it goes. Without email set up, **Copy text** and paste it into your
+own mail. Nothing is sent by itself, and a paid invoice closes its reminder.
+
 ## Quotes
 Money > Quotes: fill in the client and the lines and press **Make the quote** (or say "make a quote for Acme: 10 hours
 of design at 60 EUR"). Mark it sent; when the client says yes, **Accepted** makes the invoice with the same lines.

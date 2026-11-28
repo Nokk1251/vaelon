@@ -38,12 +38,12 @@ PERSONAL = "personal"
 ALL = "*"
 PERMS = ("bills.read", "bills.write", "invoices.read", "invoices.write", "budget.read", "budget.write", "budget.limits",
          "deals.read", "deals.write", "quotes.read", "quotes.write", "profile.write", "export", "bank.import",
-         "journal.read", "users.manage", "workspaces.manage", "integrations")
+         "journal.read", "users.manage", "workspaces.manage", "integrations", "mail.send")
 ROLES = {
     "owner": set(PERMS),
     "accountant": {"bills.read", "bills.write", "invoices.read", "invoices.write", "budget.read", "budget.write",
                    "budget.limits", "deals.read", "quotes.read", "quotes.write", "profile.write", "export", "bank.import",
-                   "journal.read", "integrations"},
+                   "journal.read", "integrations", "mail.send"},
     "sales": {"deals.read", "deals.write", "invoices.read", "quotes.read", "quotes.write"},
     "member": {"budget.read", "budget.write", "bills.read"},
     "viewer": {"bills.read", "invoices.read", "budget.read", "deals.read", "quotes.read"},

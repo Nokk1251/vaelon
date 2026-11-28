@@ -11,7 +11,9 @@ from typing import Callable
 
 # characters that can hide or reorder what a person reads: controls (not newline / tab), ESC sequences, bidi
 # overrides, zero-width marks, soft hyphen
-_HIDDEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]")
+_HIDDEN = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x84\x86-\x9f\u00ad\u115f\u1160\u200b-\u200f\u202a-\u202e"
+                     r"\u2060-\u2064\u2066-\u2069\u2800\u3164\ufeff\uffa0]")
+_LINE_BREAKS = re.compile(r"\r\n?|[\u0085\u2028\u2029]")  # every way of breaking a line counts as one
 CAP, HEAD, TAIL = 1500, 900, 300
 
 
@@ -19,10 +21,11 @@ def shown(text: str) -> str:
     """The text of an approval card, as a person will really read it: hidden characters removed (and said so),
     runs of blank lines / spaces collapsed, and when it is long the START and the END are shown (a payload likes to
     hide at the end)."""
-    text = str(text)
+    text = _LINE_BREAKS.sub("\n", str(text))
     cleaned, n = _HIDDEN.subn("", text)
-    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-    cleaned = re.sub(r"[ \t]{8,}", "    ", cleaned)
+    # blank lines made of any spaces (also no-break and wide ones) collapse: padding cannot push a line out of view
+    cleaned = re.sub(r"\n(?:[^\S\n]*\n){2,}", "\n\n", cleaned)  # anchored at a break: linear, never O(n^2)
+    cleaned = re.sub(r"[^\S\n]{8,}", "    ", cleaned)
     if len(cleaned) > CAP:
         cleaned = (cleaned[:HEAD] + f"\n... {len(cleaned) - HEAD - TAIL} characters not shown ...\n"
                    + cleaned[-TAIL:])
