@@ -87,6 +87,8 @@ SLASH = [
     ("/budget", "this month's income and spending against your limits"),
     ("/cashflow", "money in and out over the next weeks, and a warning when it may run short"),
     ("/quotes", "quotes to clients; an accepted one becomes an invoice in one step"),
+    ("/recurring", "invoices that repeat (retainers, rent): made on their day, never sent by themselves"),
+    ("/overdue", "payment reminder drafts for overdue invoices: you check and send them"),
     ("/deals", "your sales pipeline: deals by stage, next steps, won and lost"),
     ("/company", "company mode: companies, people and roles, the journal of who changed what"),
     ("vaelon company status | enable | disable", "company mode: people with roles, separate companies, the journal"),

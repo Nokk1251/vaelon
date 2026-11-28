@@ -8,14 +8,16 @@ import BudgetTab from "./BudgetTab";
 import DealsTab from "./DealsTab";
 import CashFlowTab from "./CashFlowTab";
 import QuotesTab from "./QuotesTab";
+import RecurringTab from "./RecurringTab";
+import RemindersTab from "./RemindersTab";
 import CompanyTab from "./CompanyTab";
 
-export type MoneyTab = "budget" | "cashflow" | "due" | "paid" | "deals" | "quotes" | "invoices" | "business" | "company";
+export type MoneyTab = "budget" | "cashflow" | "due" | "paid" | "deals" | "quotes" | "invoices" | "recurring" | "reminders" | "business" | "company";
 type Tab = MoneyTab;
-const TABS: Tab[] = ["budget", "cashflow", "due", "paid", "deals", "quotes", "invoices", "business", "company"];
+const TABS: Tab[] = ["budget", "cashflow", "due", "paid", "deals", "quotes", "invoices", "recurring", "reminders", "business", "company"];
 // company mode: a tab shows only when the role may read it
 const NEEDS: Record<Tab, string> = { budget: "budget.read", cashflow: "bills.read,invoices.read,budget.read", due: "bills.read", paid: "bills.read", deals: "deals.read", quotes: "quotes.read",
-  invoices: "invoices.read", business: "profile.write", company: "" };
+  invoices: "invoices.read", recurring: "invoices.read", reminders: "invoices.read", business: "profile.write", company: "" };
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const inDays = (n: number) => {
@@ -239,7 +241,7 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
           ))}
         </nav>
         <div className="panel-body">
-          {!data && !["budget", "cashflow", "deals", "quotes", "company"].includes(tab) && <p className="muted scan">{t.loading}</p>}
+          {!data && !["budget", "cashflow", "deals", "quotes", "recurring", "reminders", "company"].includes(tab) && <p className="muted scan">{t.loading}</p>}
           {made && (
             <div className="billmade">
               <FileCard file={made} token={token} t={t} onNote={onNote} />
@@ -254,6 +256,10 @@ export default function BillsPanel(props: { token: string; lang: Lang; tab?: Mon
             <QuotesTab token={token} t={t} onNote={onNote} onFile={(f) => { setMade(f); void load(); }} onBusiness={() => setTab("business")} />
           )}
 
+          {tab === "recurring" && (
+            <RecurringTab token={token} t={t} onNote={onNote} onBusiness={() => setTab("business")} onMade={() => void load()} />
+          )}
+          {tab === "reminders" && <RemindersTab token={token} t={t} onNote={onNote} />}
           {data && tab === "due" && (
             <>
               <p className="billtotal">

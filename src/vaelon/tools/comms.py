@@ -24,7 +24,9 @@ from ..security.policy import Risk
 from .registry import tool
 
 _PHONE = re.compile(r"^\+\d{7,15}$")
-_EMAIL = re.compile(r"^[^@\s<>]{1,64}@[A-Za-z0-9.-]{1,253}\.[A-Za-z]{2,24}$")
+# exactly ONE plain address, ASCII only: no "a,b@x" lists, "group:x@y" or "(comment)" forms that send elsewhere
+_EMAIL = re.compile(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@(?=.{4,253}\Z)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+                    r"[A-Za-z]{2,24}\Z")  # \Z: "$" would also let a trailing newline through
 
 
 def _contacts() -> dict:
@@ -66,7 +68,10 @@ def contacts_count() -> int:
 @tool("contact_lookup", "Find a saved contact's phone/email by name", {"name": "contact name"}, group="comms")
 def contact_lookup(ctx, name):
     n = name.lower()
+    from .registry import outside_shown
+
     hits = {k: v for k, v in _contacts().items() if n in k.lower()}
+    outside_shown(ctx, list(hits.values()))
     return json.dumps(hits, ensure_ascii=False) if hits else "no such contact (save one with contact_save)"
 
 
@@ -88,6 +93,8 @@ def contact_save(ctx, name, phone="", email=""):
     data = _contacts()
     before = dict(data.get(name) or {})
     entry = {**before, **({"phone": phone} if phone else {}), **({"email": email} if email else {})}
+    if getattr(ctx, "tainted", False) or getattr(ctx, "extra", {}).get("echo"):
+        entry["src"] = "chat-outside"  # written after outside content (registry.outside_shown)
     data[name] = entry
     _save_contacts(data)
 
@@ -157,24 +164,36 @@ def send_sms(ctx, to, message):
       risk=Risk.DANGEROUS, summary=lambda a: f"EMAIL to {a.get('to')}\n  Subject: {a.get('subject')}\n  {a.get('body')}",
       group="comms")
 def send_email(ctx, to, subject, body):
+    deliver(ctx.cfg, to, subject, body)
+    return f"email sent to {to}"
+
+
+def mail_ready(cfg) -> bool:
+    """Is email set up (address, app password, provider)? Nothing about the values is returned."""
+    return bool(config.env("VAELON_SMTP_USER") and config.env("VAELON_SMTP_PASS") and cfg.smtp_host)
+
+
+def deliver(cfg, to, subject, body) -> None:
+    """Send one plain-text email with the account from Settings > Phone and email. Callers ask the user FIRST
+    (send_email: the approval card; a payment reminder: its own card or the app's confirmation)."""
     user, pw = config.env("VAELON_SMTP_USER"), config.env("VAELON_SMTP_PASS")
-    if not (user and pw and ctx.cfg.smtp_host):
+    if not (user and pw and cfg.smtp_host):
         raise RuntimeError("email is not set up: Settings > Phone and email (address, app password, provider)")
+    to, subject, body = str(to), str(subject), str(body)
     if any(c in to + subject for c in "\r\n"):
         raise ValueError("header injection blocked")
     m = EmailMessage()
     m["From"], m["To"], m["Subject"] = user, to, subject
     m.set_content(body)
-    if int(ctx.cfg.smtp_port) == 465:  # some providers only speak encrypted SMTP on 465
-        with smtplib.SMTP_SSL(ctx.cfg.smtp_host, 465, timeout=30) as s:
+    if int(cfg.smtp_port) == 465:  # some providers only speak encrypted SMTP on 465
+        with smtplib.SMTP_SSL(cfg.smtp_host, 465, timeout=30) as s:
             s.login(user, pw)
             s.send_message(m)
     else:
-        with smtplib.SMTP(ctx.cfg.smtp_host, ctx.cfg.smtp_port, timeout=30) as s:
+        with smtplib.SMTP(cfg.smtp_host, cfg.smtp_port, timeout=30) as s:
             s.starttls()
             s.login(user, pw)
             s.send_message(m)
-    return f"email sent to {to}"
 
 
 @tool("read_email", "List recent unread emails (untrusted content)", {"?limit": "max messages (default 5)"},

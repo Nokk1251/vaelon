@@ -4,6 +4,7 @@ answered by intents without the model."""
 from __future__ import annotations
 
 import datetime as _dtm
+import re
 
 from .. import bills as B
 from ..security.policy import Risk
@@ -16,6 +17,24 @@ IMAGE_QUESTION = ("This is a bill or an invoice. Copy these lines exactly as pri
 
 def _bg(ctx) -> bool:
     return getattr(ctx, "extra", {}).get("lang") == "bg"
+
+
+def _outside(ctx) -> bool:
+    """This task read outside content (or answers right after it): what it writes carries `src`, so showing that
+    record later counts as outside content too (registry.outside_shown) - a planted text is never laundered."""
+    return bool(getattr(ctx, "tainted", False) or getattr(ctx, "extra", {}).get("echo"))
+
+
+def _marked(ctx, record) -> None:
+    from .registry import marked_shown
+
+    marked_shown(ctx, [record or {}])
+
+
+def _flat(v, n: int = 160) -> str:
+    """A value as the card shows it: on one line, spaces collapsed, cut to `n` (the card can never be padded)."""
+    s = " ".join(str(v or "").split())
+    return s if len(s) <= n else s[:n - 1] + "…"
 
 
 def _undo(label: str, before: dict) -> None:
@@ -203,7 +222,8 @@ def money_export(ctx, period=""):
       {"?name": "business name", "?address": "address", "?company_id": "company number (ЕИК)", "?vat_id": "VAT number",
        "?person": "responsible person (МОЛ)", "?bank": "bank details as the user gave them", "?email": "e-mail",
        "?phone": "phone", "?vat_rate": "percent, e.g. 20 or 0", "?next": "the next invoice number"},
-      risk=Risk.REVERSIBLE, group="money")
+      risk=Risk.REVERSIBLE, group="money", summary=lambda a: _profile_card(a),
+      escalate=lambda a: any(str(a.get(k, "")).strip() for k in ("bank", "next")))
 def business_profile(ctx, **fields):
     fields = {k: v for k, v in fields.items() if str(v).strip()}
     if not fields:
@@ -219,8 +239,26 @@ def business_profile(ctx, **fields):
     return "saved business details: " + ", ".join(sorted(k for k in fields))
 
 
-def make_invoice(ctx, client: dict, items: list[dict], vat_rate=None, due_days=14, currency="", notes="", lang="") -> tuple[dict, str]:
-    """Number + store + PDF. Returns (invoice, the _save message)."""
+def _profile_card(a: dict) -> str:
+    """Changing who gets paid (the bank details) or the invoice numbering always asks: old and new side by side."""
+    me = B.profile()
+    lines = []
+    for k in sorted(a, key=lambda k: (k not in ("bank", "next"), k)):
+        v = a[k]
+        if not str(v).strip():
+            continue
+        new = (re.sub(r"[\r\t]", " ", str(v)).strip()[:B.PROFILE_FIELDS[k]] if k in B.PROFILE_FIELDS else str(v).strip())
+        old = me.get(k, "") if k != "next" else f"{int(B.load().get('next') or 1):010d}"
+        if k != "next" and _flat(new, 10**6) == _flat(old, 10**6):
+            continue  # unchanged: not shown, so padding with unchanged fields hides nothing
+        n = B.PROFILE_FIELDS.get(k, 160)
+        lines.append(f"  {k}: {_flat(old, n) or '(empty)'}  ->  {_flat(new, n) or '(empty)'}")
+    return "CHANGE business details (printed on every invoice):\n" + ("\n".join(lines) or "  (nothing changes)")
+
+
+def make_invoice(ctx, client: dict, items: list[dict], vat_rate=None, due_days=14, currency="", notes="", lang="",
+                 src: str = "") -> tuple[dict, str]:
+    """Number + store + PDF. Returns (invoice, the _save message). `src`: its words came from outside content."""
     from .create import _save
 
     before = B.snapshot()
@@ -236,7 +274,8 @@ def make_invoice(ctx, client: dict, items: list[dict], vat_rate=None, due_days=1
     except Exception:
         B.restore_all(before)  # the bills go back; the invoice itself stays (a number is never taken back) - void it
         raise
-    B.update_invoice(inv["id"], file=holder.get("path", ""))
+    src = src or ("chat-outside" if _outside(ctx) else "")
+    B.update_invoice(inv["id"], file=holder.get("path", ""), **({"src": src} if src else {}))
     inv["file"] = holder.get("path", "")
     _undo(f"invoice {inv['number']}", before)
     return inv, msg
@@ -267,7 +306,10 @@ def invoices_list(ctx, status="unpaid"):
     from .. import company
 
     company.require("invoices.read")
+    from .registry import marked_shown
+
     st = str(status or "unpaid").lower()
+    marked_shown(ctx, B.load()["invoices"])
     if st.startswith("un") or st in ("", "open"):
         return B.owed_text(_bg(ctx))
     items = [i for i in B.load()["invoices"] if st == "all" or i["status"] == st]
@@ -473,7 +515,10 @@ def deal_add(ctx, client, title="", value="", stage="", close="", next_step="", 
     before = _dl.snapshot()
     d = _dl.add(str(client), str(title), c, cur, st, _date(close, "close date"), str(next_step), _date(next_date, "date"),
                 str(contact), str(note))
+    if _outside(ctx):
+        d = _dl.update(d["id"], src="chat-outside") or d
     _undo_deals(f"add deal {d['client']}", before)
+    _marked(ctx, d)
     return f"added [id {d['id']}]: {_dl.deal_line(d, _bg(ctx), ids=False)}"
 
 
@@ -482,7 +527,10 @@ def deal_add(ctx, client, title="", value="", stage="", close="", next_step="", 
 def deals_list(ctx):
     from .. import company
 
+    from .registry import marked_shown
+
     company.require("deals.read")
+    marked_shown(ctx, _dl.load())
     return _dl.pipeline_text(_bg(ctx))
 
 
@@ -504,6 +552,8 @@ def deal_update(ctx, deal, stage="", value="", title="", close="", next_step="",
     for k, v in (("title", title), ("next_step", next_step), ("contact", contact), ("note", note)):
         if str(v).strip():
             ch[k] = str(v).strip()
+    if _outside(ctx):
+        ch["src"] = "chat-outside"
     if str(close).strip():
         ch["close"] = _date(close, "close date").isoformat()
     if str(next_date).strip():
@@ -513,6 +563,7 @@ def deal_update(ctx, deal, stage="", value="", title="", close="", next_step="",
     before = _dl.snapshot()
     d = _dl.update(d["id"], **ch)
     _undo_deals(f"change deal {d['client']}", before)
+    _marked(ctx, d)
     return f"changed: {_dl.deal_line(d, _bg(ctx), ids=False)}"
 
 
@@ -523,6 +574,7 @@ def deal_won(ctx, deal, invoice=""):
     before = _dl.snapshot()
     d = _dl.update(d["id"], stage="won")
     _undo_deals(f"won {d['client']}", before)
+    _marked(ctx, d)
     out = f"won: {_dl.deal_line(d, _bg(ctx), ids=False)}"
     if str(invoice).strip().lower() in ("yes", "y", "true", "да", "1"):
         out += ". " + deal_invoice(ctx, d["id"])
@@ -536,6 +588,7 @@ def deal_lost(ctx, deal, reason=""):
     before = _dl.snapshot()
     d = _dl.update(d["id"], stage="lost", lost_reason=str(reason).strip()[:200])
     _undo_deals(f"lost {d['client']}", before)
+    _marked(ctx, d)
     return f"lost: {_dl.deal_line(d, _bg(ctx), ids=False)}"
 
 
@@ -551,7 +604,8 @@ def deal_invoice(ctx, deal):
         return "ERROR: only a won deal is invoiced - mark it won first"
     if d.get("invoice"):
         return f"ERROR: it already has invoice no. {d['invoice']}"
-    inv, msg = make_invoice(ctx, {"name": d["client"]}, _dl.invoice_items(d), None, 14, d["currency"])
+    inv, msg = make_invoice(ctx, {"name": d["client"]}, _dl.invoice_items(d), None, 14, d["currency"],
+                            src=d.get("src", ""))
     _dl.update(d["id"], invoice=inv["number"], note=f"invoice {inv['number']}")
     return f"invoice no. {inv['number']} for {d['client']}: {B.money(B.invoice_totals(inv)[2], inv['currency'])}. {msg}"
 
@@ -576,8 +630,9 @@ def _accept_card(a: dict) -> str:
         made = _q.invoice_of(q)
         then = (f"links invoice no. {made['number']}, made by an earlier try" if made
                 else f"this issues INVOICE no. {int(B.load().get('next') or 1):010d}")
-        return (f"ACCEPT {q['number']} {q['client']['name']} - {B.money(_q.totals(q)[2], q['currency'])}, "
-                f"{len(q['items'])} line(s): {then}")
+        note = f"\n  note printed on the invoice: {_flat(q['notes'], 500)}" if q.get("notes") else ""
+        return (f"ACCEPT {q['number']} {_flat(q['client']['name'], 120)} - {B.money(_q.totals(q)[2], q['currency'])}, "
+                f"{len(q['items'])} line(s): {then}{note}")
     except Exception as e:
         return f"ACCEPT quote {a.get('quote')} ({e})"
 
@@ -610,6 +665,8 @@ def make_quote(ctx, client: dict, items: list[dict], vat_rate=None, valid_days=3
             holder["path"] = str(path)
 
         msg = _save(ctx, f"Quote {q['number']} {q['client']['name']}", ".pdf", write)
+        if _outside(ctx):
+            _q._change(lambda data: [x.update(src="chat-outside") for x in data["quotes"] if x["id"] == q["id"]])
     except Exception:
         _q.restore_all(before)
         raise
@@ -652,7 +709,8 @@ def accept_quote(ctx, key: str) -> tuple[dict, dict, str]:
                 inv = {**made, "file": holder.get("path", "")}
         else:
             inv, msg = make_invoice(ctx, q["client"], q["items"], q["vat_rate"], 14, q["currency"],
-                                    (f"Quote {q['number']}. " + q.get("notes", "")).strip(), q["lang"])
+                                    (f"Quote {q['number']}. " + q.get("notes", "")).strip(), q["lang"],
+                                    src=q.get("src", ""))
         try:
             B.update_invoice(inv["id"], quote=q["id"])
             _q.mark_accepted(q["id"], inv["number"])
@@ -695,7 +753,10 @@ def quote_create(ctx, client="", items="", client_address="", client_company_id=
 def quotes_list(ctx, status=""):
     from .. import company
 
+    from .registry import marked_shown
+
     company.require("quotes.read")
+    marked_shown(ctx, _q.load()["quotes"])
     st = str(status or "").lower().strip()
     return _q.list_text(status=st if st in _q.STATES else "")
 
@@ -755,3 +816,183 @@ def bank_import(ctx, path, preview=""):
         return "ERROR: give the statement as a .csv file"
     _s, text = bankcsv.import_file(p, apply=str(preview).strip().lower() not in ("yes", "y", "true", "да", "1"), bg=_bg(ctx))
     return fence(text, f"statement:{p.name}")[0]
+
+
+# ---------------------------------------------------------------- recurring invoices + payment reminders (issue #44)
+from .. import payreminders as _pr  # noqa: E402
+from .. import recurring as _rc  # noqa: E402
+
+
+_PLAN_LINES = 10
+
+
+def _recurring_card(a: dict) -> str:
+    """The card for a plan: Vaelon will ISSUE these invoices by itself, in the real numbering - so say exactly what."""
+    try:
+        rows, cur = _q.items_from(str(a.get("items", "")))
+        me = B.profile()
+        rate = str(a.get("vat_rate") or me.get("vat_rate") or ("20" if me.get("vat_id") else "0"))
+        total = B.money(B.invoice_totals({"items": rows, "vat_rate": rate.strip(" %").replace(",", ".")})[2],
+                        cur or str(a.get("currency") or me.get("currency") or "EUR").upper())
+        cur_ = cur or str(a.get("currency") or me.get("currency") or "EUR").upper()
+        what = f"{total} ({len(rows)} line(s), VAT {rate} %)" + "".join(
+            f"\n  - {_flat(r['desc'], 200)} x {r['qty']} @ {B.money(r['price'], cur_)}" for r in rows[:_PLAN_LINES])
+    except Exception as e:
+        what = f"lines that cannot be read ({e})"
+    day = _flat(a.get("day") or "today's day", 12)
+    shown = dict(a)
+    if str(a.get("due_days", "")).strip():  # as it will be stored
+        dd = str(a["due_days"]).strip()
+        shown["due_days"] = str(max(0, min(365, int(dd)))) if dd.isdigit() else "14"
+    extra = "".join(f"\n  {label}: {_flat(shown[k], 400 if k == 'notes' else 200)}"
+                    for k, label in (("notes", "note printed on every invoice"), ("client_address", "client address"),
+                                     ("client_company_id", "client company no."), ("client_vat_id", "client VAT no."),
+                                     ("client_email", "client email (reminders go there)"), ("first", "first invoice"),
+                                     ("due_days", "days to pay"), ("language", "language"))
+                    if str(shown.get(k, "")).strip())
+    return (f"SET UP a recurring invoice: {what}, {_flat(a.get('every') or 'monthly', 12)} on day {day}\n"
+            f"  client: {_flat(a.get('client'), 120)}{extra}\n"
+            "Vaelon will ISSUE these invoices by itself in your numbering (it never sends them).")
+
+
+def _undo_recurring(label: str, before: dict) -> None:
+    from ..security import undo
+
+    undo.push(label, lambda: _rc.restore_all(before))
+
+
+def _undo_reminders(label: str, before: dict) -> None:
+    from ..security import undo
+
+    undo.push(label, lambda: _pr.restore_all(before))
+
+
+@tool("recurring_add", "Set up a recurring invoice (a retainer, rent): on its day every month / quarter / year Vaelon "
+      "issues the invoice in the normal numbering and makes its PDF - it NEVER sends it. Lines like "
+      "'10 hours of support at 60 EUR, hosting 20 EUR'.",
+      {"client": "client's name", "items": "the lines", "?every": "monthly (default), quarterly or yearly",
+       "?day": "day of the month 1-31 (default today's)", "?client_email": "client's email (for payment reminders)",
+       "?client_address": "client's address", "?client_company_id": "client's company number",
+       "?client_vat_id": "client's VAT number", "?first": "date of the first invoice (default: the next such day)",
+       "?vat_rate": "percent (default from business details)", "?due_days": "days to pay (default 14)",
+       "?currency": "EUR (default), USD, GBP, CHF", "?notes": "a note printed on every invoice", "?language": "en or bg"},
+      risk=Risk.DANGEROUS, group="money", summary=lambda a: _recurring_card(a))
+def recurring_add(ctx, client, items, every="monthly", day="", client_email="", client_address="", client_company_id="",
+                  client_vat_id="", first="", vat_rate="", due_days="14", currency="", notes="", language=""):
+    rows, cur = _q.items_from(str(items))
+    if len(rows) > _PLAN_LINES:  # the card shows every line: more than it can show are set up in the app
+        return f"ERROR: a plan made in the chat has at most {_PLAN_LINES} lines - use Money > Recurring for more"
+    from ..security.confirm import CAP
+
+    card = ctx.extra.pop("card", None)  # THIS call's approval card: it must have been shown whole
+    if card is not None and len(card) > CAP:
+        return "ERROR: this plan is too long to show in full on the card - set it up in Money > Recurring"
+    if cur and currency and cur != str(currency).upper():
+        return f"ERROR: the lines are in {cur} but the currency given is {str(currency).upper()} - say one currency"
+    d = str(day).strip()
+    if d and not d.isdigit():
+        return "ERROR: the day must be a number 1-31"
+    start = _date(first, "first") if str(first or "").strip() else None
+    before = _rc.snapshot()
+    p = _rc.new_plan({"name": client, "email": client_email, "address": client_address, "company_id": client_company_id,
+                      "vat_id": client_vat_id}, rows, str(every or "monthly").lower(), int(d) if d else None,
+                     vat_rate or None, due_days, cur or currency,
+                     notes, "bg" if str(language).lower().startswith("bg") else "en", start)
+    if _outside(ctx):
+        _rc.mark_outside(p["id"])
+    _undo_recurring(f"recurring invoice {p['client']['name']}", before)
+    return f"set up: {_rc.plan_line(p, ids=False)}. The invoice is made on that day and NOT sent; Vaelon tells you."
+
+
+@tool("recurring_list", "List the recurring invoices: client, amount, how often, the next date", {}, group="money")
+def recurring_list(ctx):
+    from .. import company
+
+    from .registry import marked_shown
+
+    company.require("invoices.read")
+    marked_shown(ctx, _rc.load()["plans"])
+    return _rc.list_text()
+
+
+@tool("recurring_change", "Pause, resume or delete a recurring invoice (invoices it already made stay)",
+      {"plan": "its id or the client's name", "action": "pause / resume / delete"}, risk=Risk.REVERSIBLE, group="money",
+      summary=lambda a: f"{str(a.get('action', '')).upper()} recurring invoice {a.get('plan')}")
+def recurring_change(ctx, plan, action):
+    p = _rc.find(str(plan))
+    act = str(action).lower().strip()
+    before = _rc.snapshot()
+    if act in ("pause", "stop", "off"):
+        out = _rc.set_active(p["id"], False)
+    elif act in ("resume", "start", "on"):
+        out = _rc.set_active(p["id"], True)
+    elif act in ("delete", "remove"):
+        out = _rc.remove(p["id"])
+        _undo_recurring(f"delete recurring invoice {p['client']['name']}", before)
+        return f"deleted the recurring invoice for {out['client']['name']} (the invoices it made stay)"
+    else:
+        return "ERROR: action must be pause, resume or delete"
+    _undo_recurring(f"recurring invoice {p['client']['name']} {act}", before)
+    _marked(ctx, out)
+    return _rc.plan_line(out, ids=False)
+
+
+@tool("payment_reminders", "Show the payment reminder DRAFTS for clients with overdue invoices (Vaelon writes them; the "
+      "user checks and sends them)", {}, group="money")
+def payment_reminders(ctx):
+    from .. import company
+
+    from .registry import marked_shown
+
+    company.require("invoices.read")
+    drafts = _pr.open_drafts()
+    invoices = {i["id"]: i for i in B.load()["invoices"]}
+    marked_shown(ctx, [invoices.get(d["invoice"]) for d in drafts] + drafts)
+    if not drafts:
+        return "no payment reminders are waiting"
+    return "\n\n".join(f"{_pr.draft_line(d)}\nSubject: {d['subject']}\n{d['body']}" for d in drafts[:10])
+
+
+@tool("payment_reminder_draft", "Write a payment reminder draft now for one overdue invoice (it is NOT sent)",
+      {"invoice": "the invoice's number or id"}, risk=Risk.REVERSIBLE, group="money")
+def payment_reminder_draft(ctx, invoice):
+    before = _pr.snapshot()
+    d = _pr.draft_now(str(invoice))
+    _undo_reminders(f"payment reminder for invoice {d['number']}", before)
+    return f"drafted: {_pr.draft_line(d)}\nSubject: {d['subject']}\n{d['body']}\nIt was NOT sent."
+
+
+def _send_card(a: dict) -> str:
+    d = _pr.get(a.get("reminder", ""))
+    if not d:
+        return f"EMAIL payment reminder {a.get('reminder')} (no such draft)"
+    return _pr.card(d)
+
+
+@tool("payment_reminder_send", "Send one payment reminder draft to the client by email (always asks first)",
+      {"reminder": "the draft's id (or the invoice number)"}, risk=Risk.DANGEROUS, group="money", summary=_send_card)
+def payment_reminder_send(ctx, reminder):
+    d = _pr.get(str(reminder))
+    if not d:
+        return "ERROR: no such draft (see payment_reminders)"
+    from ..security.confirm import CAP
+
+    shown = ctx.extra.pop("card", None)  # the text of THIS call's approval card (registry.execute puts it there)
+    # what goes out must be exactly what the card showed: a draft changed while the card was open is never sent unseen,
+    # and one too long to show whole on a card is sent from Money > Reminders, where the whole text is on screen
+    if shown is not None and len(shown) > CAP:
+        return "ERROR: this reminder is too long to show in full on the card - send it from Money > Reminders"
+    out = _pr.send(ctx.cfg, d["id"], expect=shown)
+    return f"payment reminder for invoice no. {out['number']} sent to {out['to']}"
+
+
+@tool("payment_reminder_dismiss", "Throw away a payment reminder draft (nothing is sent)",
+      {"reminder": "the draft's id (or the invoice number)"}, risk=Risk.REVERSIBLE, group="money")
+def payment_reminder_dismiss(ctx, reminder):
+    d = _pr.get(str(reminder))
+    if not d:
+        return "ERROR: no such draft"
+    before = _pr.snapshot()
+    _pr.dismiss(d["id"])
+    _undo_reminders(f"dismiss payment reminder {d['number']}", before)
+    return f"dismissed the reminder for invoice no. {d['number']}"

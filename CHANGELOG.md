@@ -2,6 +2,14 @@
 
 ## Unreleased
 ### Added
+- **Recurring invoices**: Money > Recurring (or `/recurring`) sets up invoices that repeat every month, quarter or
+  year on a day. On that day Vaelon issues the invoice in the normal unbroken numbering, makes its PDF and tells you -
+  it never sends it. Each period is invoiced once, also after a crash or two runs at the same moment; missed days are
+  caught up (at most three periods at once); pausing, deleting or undoing a plan never takes back an invoice.
+- **Payment reminders**: an overdue invoice gets a polite reminder draft in Money > Reminders (or `/overdue`) - first
+  friendly, then firmer - made only from your own invoice and business details. Nothing is sent by itself: you check it,
+  then send it (asked every time) or copy it. A paid invoice, also from a bank CSV import, closes its reminder. In company
+  mode sending has its own right (`mail.send`: owner and accountant).
 - **Quotes**: Money > Quotes (or `/quotes`) makes quotes for clients as PDFs with their own numbers (Q-000001 ...)
   that never touch the invoice numbering. Draft, sent, declined and expired states, a reminder before a quote expires,
   and **Accepted** turns a quote into an invoice with the same lines in one step (asked first); a linked deal moves to
@@ -18,6 +26,12 @@
   questions from the best passages and names the file. Keyword search, no model download. Document text is outside
   content (fenced, the task is tainted); hidden, linked-out and sensitive files are skipped; owner only.
 ### Changed
+- After Vaelon has read outside content (a web page, a mail, a document), every change to money data - an invoice,
+  a quote, a deal, a recurring plan, a payment mark, a contact - asks first, also in the answer that follows. Changing
+  the bank details or the next invoice number always asks and shows the old and the new value. Deals, quotes and plans
+  written after outside content keep that mark, so listing them later counts as outside content too.
+- Approval cards treat every kind of line break and wide or no-break space as one, so padding cannot push a line out
+  of view.
 - English answers and the Deals tab write "no." before a bill or invoice number instead of the numero sign
   (Bulgarian answers and the Bulgarian invoice keep it).
 - The README shows a short demo of the app instead of a still picture.

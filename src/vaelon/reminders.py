@@ -295,8 +295,9 @@ def fire_due(now: float | None = None, toast: bool = True) -> list[dict]:
 _watching = False
 
 
-def watch(poll_seconds: float = 5.0) -> None:
-    """Start the background thread that fires reminders (once per process)."""
+def watch(poll_seconds: float = 5.0, cfg=None) -> None:
+    """Start the background thread that fires reminders (once per process). `cfg` (the app's settings) tells where
+    recurring invoices put their PDFs."""
     global _watching
     if _watching:
         return
@@ -306,6 +307,10 @@ def watch(poll_seconds: float = 5.0) -> None:
         from . import company
 
         company.system()  # this thread is Vaelon itself: it only marks what it announced
+        try:
+            conf = cfg or config.Config.load()
+        except Exception:
+            conf = None
         while True:
             try:
                 fire_due()
@@ -318,6 +323,11 @@ def watch(poll_seconds: float = 5.0) -> None:
             except Exception:
                 pass
             for d in company.all_dirs():  # every company's bills and deals, not only the one that is open
+                try:  # bound to that company and its owner: its PDFs go to its own output folder
+                    company.bind(company.owner_id() if company.enabled() else None,
+                                 company.PERSONAL if d == config.HOME else d.name)
+                except Exception:
+                    continue
                 with company.use_dir(d):
                     try:  # bills: a few days before the due date, on the day, and once when overdue
                         from . import bills
@@ -337,6 +347,20 @@ def watch(poll_seconds: float = 5.0) -> None:
                         quotes.fire_due()
                     except Exception:
                         pass
+                    try:  # recurring invoices: made on their day (never sent)
+                        from . import recurring
+
+                        recurring.run_due(conf)
+                    except Exception:
+                        pass
+                    try:  # overdue invoices: a reminder DRAFT for the client (never sent by itself)
+                        from . import payreminders
+
+                        payreminders.fire_due()
+                    except Exception:
+                        pass
+                company.unbind()
+            company.unbind()
             time.sleep(poll_seconds)
 
     threading.Thread(target=loop, daemon=True, name="vaelon-reminders").start()

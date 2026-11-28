@@ -39,7 +39,8 @@ GROUP_WORDS = {
     "money": "сметк фактур платих плащане плати дълж разход разходи бюджет наем застраховк данък абонамент "
              "ддс еик похарч харча заплат лимит приход bill bills invoice invoices paid owe owes expense expenses spent "
              "spend budget rent utilit receipt vat income salary limit сделк оферт клиент deal deals pipeline "
-             "proposal client lead извлечение statement bank банк cashflow паричн quote quotes quotation",
+             "proposal client lead извлечение statement bank банк cashflow паричн quote quotes quotation recurring retainer "
+             "overdue просроч повтарящ",
     "library": "папка папката папки документите файловете бележките договор договорите записките "
                "folder folders my documents my files my notes contract contracts library indexed",
     "create": "документ доклад отчет word docx pdf excel xlsx таблица презентация слайд powerpoint pptx аудио подкаст "

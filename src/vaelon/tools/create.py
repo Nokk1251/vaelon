@@ -43,8 +43,10 @@ def _safe_name(name: str, fallback: str = "vaelon") -> str:
     return name or fallback
 
 
-def _save(ctx, name: str, ext: str, write) -> str:
-    """Pick a free file name inside the output folder, let `write(path)` produce the file, register undo."""
+def _save(ctx, name: str, ext: str, write, quiet: bool = False) -> str:
+    """Pick a free file name inside the output folder, let `write(path)` produce the file, register undo.
+    `quiet` (Vaelon's own background work, e.g. a recurring invoice): no undo entry - the user's next "undo" must
+    never delete a file they did not ask for - and no file card."""
     folder = out_dir(ctx.cfg)
     stem = _safe_name(name)
     folder.mkdir(parents=True, exist_ok=True)
@@ -61,6 +63,8 @@ def _save(ctx, name: str, ext: str, write) -> str:
     except Exception:
         path.unlink(missing_ok=True)
         raise
+    if quiet:
+        return str(path)
     undo.push(f"create {path.name}", lambda: path.unlink(missing_ok=True))
     emit = ctx.extra.get("emit") if hasattr(ctx, "extra") else None
     if emit:

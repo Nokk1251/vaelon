@@ -316,6 +316,21 @@ the client accepts, **Accepted** makes the invoice with the same lines in one st
 deal moves to won, keeping both numbers. Say "make a quote for Acme: 10 hours of design at 60 EUR" or "what quotes do
 I have?". Stored encrypted in `~/.vaelon/quotes.enc`.
 
+## Recurring invoices and payment reminders
+Money > Recurring (or `/recurring`) sets up invoices that repeat - a retainer, rent: a client, lines, every month,
+quarter or year, on a day. On that day Vaelon issues the invoice in the normal unbroken numbering, makes its PDF and
+tells you. **It never sends it.** If Vaelon was not running on the day, the invoice is made the next time it runs,
+dated that day with the period printed on it (at most three periods at once; older ones are reported, not invoiced).
+Every period is invoiced once - also after a crash or a second run at the same moment - and pausing, deleting or undoing
+a plan never takes back an invoice it made.
+
+When an invoice you issued is overdue (7 days by default, a firmer reminder at 21), Vaelon writes a polite payment
+reminder as a **draft** in Money > Reminders (or `/overdue`), made only from your own data: the invoice number, date,
+amount, due date and the payment details of My business. Change it if you like, then **Send** - you are asked every
+time, and email must be set up in Settings > Phone and email - or **Copy text** into your own mail. Nothing is ever
+sent by itself. An invoice marked paid, also by a bank CSV import, closes its reminder. Stored encrypted in
+`~/.vaelon/recurring.enc` and `~/.vaelon/payreminders.enc`.
+
 ## Deals
 Money > Deals (or `/deals`) is a small sales pipeline: each deal has a client, a value, a stage (lead, contacted,
 proposal, negotiation, won, lost - with the usual chance of closing, so you see the expected value), an expected

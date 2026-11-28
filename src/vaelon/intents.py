@@ -26,6 +26,11 @@ class _Outside(str):
     """A fast answer that shows imported text: the turn counts as outside content (registry.outside_shown)."""
 
 
+def _marked(text: str, records) -> str:
+    """Records written after outside content (src="chat-outside"): the answer counts as outside content."""
+    return _Outside(text) if any(isinstance(r, dict) and r.get("src") for r in records) else text
+
+
 def _shows(text: str, records) -> str:
     return _Outside(text) if any(isinstance(r, dict) and (r.get("src") or r.get("file") or r.get("ref"))
                                  for r in records) else text
@@ -640,7 +645,7 @@ def _quotes(request: str) -> "str | Hit | None":
 
     if QUOTES_LIST_RX.match(request):
         company.require("quotes.read")
-        return quotes.list_text(ids=False)
+        return _marked(quotes.list_text(ids=False), quotes.load()["quotes"])
     m = QUOTE_MAKE_RX.match(request)
     if not m or asks(request):
         return None
@@ -769,7 +774,7 @@ def _deals(request: str, bg: bool) -> str | None:
         from . import company
 
         company.require("deals.read")
-        return D.pipeline_text(bg, ids=False)
+        return _marked(D.pipeline_text(bg, ids=False), D.load())
     if asks(request):
         return None
     m = DEAL_ADD_RX.match(request)
@@ -812,8 +817,8 @@ def _deals(request: str, bg: bool) -> str | None:
         d = D.update(d["id"], next_step=step or ("свържи се отново" if bg else "follow up"),
                      next_date=_dt.fromtimestamp(ts).date().isoformat())
         undo.push(f"follow up {d['client']}", lambda: D.restore_all(before))
-        return (("Ще ти напомня " if bg else "I will remind you ") + when
-                + ": " + D.deal_line(d, bg, ids=False) + ".")
+        return _marked(("Ще ти напомня " if bg else "I will remind you ") + when
+                       + ": " + D.deal_line(d, bg, ids=False) + ".", [d])
     if len(request) > 140 or asks(request) or CAL_TALK.search(request):
         return None  # "cancel the meeting with Acme" is about the calendar, not the deal
     said = _stage_said(request)
@@ -828,7 +833,8 @@ def _deals(request: str, bg: bool) -> str | None:
     if not explicit and st in D.OPEN and d["stage"] in D.OPEN and order.index(st) < order.index(d["stage"]):
         return None  # never a step back unless said plainly ("move Acme to lead")
     if d["stage"] == st:
-        return ("Вече е отбелязана така: " if bg else "It is already marked so: ") + D.deal_line(d, bg, ids=False) + "."
+        return _marked(("Вече е отбелязана така: " if bg else "It is already marked so: ") + D.deal_line(d, bg, ids=False)
+                       + ".", [d])
     before = D.snapshot()
     d = D.update(d["id"], stage=st)
     undo.push(f"deal {d['client']} {st}", lambda: D.restore_all(before))
@@ -836,7 +842,7 @@ def _deals(request: str, bg: bool) -> str | None:
     if st == "won" and d["value"]:
         out += (" Да направя ли фактура? Кажи „направи фактура за сделката с " + d["client"] + "“." if bg
                 else f" Want the invoice? Say \"make the invoice for the {d['client']} deal\".")
-    return out
+    return _marked(out, [d])
 
 
 def _remember(request: str, bg: bool, memory) -> str | None:
